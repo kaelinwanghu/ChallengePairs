@@ -6,6 +6,10 @@
 #pragma once
 
 #include <hash_table8.hpp> // emhash8 hashmap
+// The headers use different definitions for these so undefine them after hash_table8
+#undef EMH_EMPTY
+#undef EMH_EQHASH
+#undef EMH_NEW
 #include <hash_set8.hpp>   // emhash8 hashset
 #include <xxhash.h>        // xxHash
 #include <stdint.h>        // For fixed-size integer types

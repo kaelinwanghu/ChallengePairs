@@ -1275,6 +1275,9 @@ one-way search strategy.
         auto offset = 2u;
 
 #ifndef EMH_QUADRATIC
+        #ifndef EMH_CACHE_LINE_SIZE
+            #define EMH_CACHE_LINE_SIZE 64
+        #endif
         constexpr auto linear_probe_length = 2 + EMH_CACHE_LINE_SIZE / 16;//2 4 6 8
         for (; offset < linear_probe_length; offset += 2) {
             auto bucket1 = (bucket + offset) & _mask;
