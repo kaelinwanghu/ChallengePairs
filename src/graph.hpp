@@ -1,3 +1,8 @@
+/**
+ * Name: Kaelin Wang Hu
+ * Date Started: 10/29/2024
+ * Description: graph class declaration
+ */
 #pragma once
 
 #include <hash_table8.hpp> // emhash8 hashmap

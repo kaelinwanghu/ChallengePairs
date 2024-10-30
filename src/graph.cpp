@@ -1,5 +1,11 @@
+/**
+ * Name: Kaelin Wang Hu
+ * Date Started: 10/29/2024
+ * Description: Efficient graph class implementation
+ */
 #include "graph.hpp"
 
+// The containers all handle it so no need to do much for graph constructor and destructor
 Graph::Graph() : edgeCount(0)
 { }
 
@@ -9,7 +15,7 @@ Graph::~Graph()
 // Gets the size of the graph in terms of vertices
 uint32_t Graph::size() const
 {
-    std::lock_guard<std::mutex> lock(graph_mutex);
+    std::lock_guard<std::mutex> lock(graph_mutex); // lock_guard is very useful for methods like these that have a well-defined scope
 
     return key_to_id.size();
 }
@@ -104,7 +110,7 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id)
 
     // Remove for both successors...
     auto& successors = successor_list[from_id];
-    auto& successor_find = std::find(successors.begin(), successors.end(), to_id);
+    const auto successor_find = std::find(successors.begin(), successors.end(), to_id);
     if (successor_find != successors.end())
     {
         successors.erase(successor_find);
@@ -116,7 +122,7 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id)
 
     // And predecessors
     auto& predecessors = predecessor_list[to_id];
-    auto& predecessor_find = std::find(predecessors.begin(), predecessors.end(), from_id);
+    const auto predecessor_find = std::find(predecessors.begin(), predecessors.end(), from_id);
     if (predecessor_find != predecessors.end())
     {
         predecessors.erase(predecessor_find);
@@ -132,7 +138,7 @@ uint32_t Graph::out_degree(const uint32_t node_id) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
 
-    auto it = successor_list.find(node_id);
+    const auto it = successor_list.find(node_id);
     if (it != successor_list.end())
     {
         return static_cast<uint32_t>(it->second.size());
@@ -148,7 +154,7 @@ uint32_t Graph::in_degree(const uint32_t node_id) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
 
-    auto it = predecessor_list.find(node_id);
+    const auto it = predecessor_list.find(node_id);
     if (it != predecessor_list.end())
     {
         return static_cast<uint32_t>(it->second.size());
@@ -165,7 +171,7 @@ uint32_t Graph::get_node_id(const std::string& key) const
     std::lock_guard<std::mutex> lock(graph_mutex);
 
     // Fast HashSet search
-    auto& it = key_to_id.find(key);
+    const auto it = key_to_id.find(key);
     if (it != key_to_id.end())
     {
         return it->second;
@@ -181,7 +187,7 @@ std::string Graph::get_key(const uint32_t node_id) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
 
-    auto it = id_to_key.find(node_id);
+    const auto it = id_to_key.find(node_id);
     if (it != id_to_key.end())
     {
         return it->second;
@@ -197,11 +203,12 @@ emhash8::HashSet<uint32_t, XXIntHasher> Graph::successor_set(const uint32_t node
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
 
+    // Create a new HashSet and add all the relevant nodes to that successors HashSet
     emhash8::HashSet<uint32_t, XXIntHasher> successors;
-    auto it = successor_list.find(node_id);
+    const auto it = successor_list.find(node_id);
     if (it != successor_list.end())
     {
-        for (const auto& successor_id : it->second)
+        for (const uint32_t successor_id : it->second)
         {
             successors.insert(successor_id);
         }
@@ -215,11 +222,12 @@ emhash8::HashSet<uint32_t, XXIntHasher> Graph::predecessor_set(const uint32_t no
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
 
+    // Create a new HashSet and add all the relevant nodes to that predecessors HashSet
     emhash8::HashSet<uint32_t, XXIntHasher> predecessors;
-    auto it = predecessor_list.find(node_id);
+    const auto it = predecessor_list.find(node_id);
     if (it != predecessor_list.end())
     {
-        for (const auto& predecessor_id : it->second)
+        for (const uint32_t predecessor_id : it->second)
         {
             predecessors.insert(predecessor_id);
         }
