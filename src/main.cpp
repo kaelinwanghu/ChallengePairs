@@ -3,6 +3,7 @@
  * Date Started: 10/29/2024
  * Description: Main function doubling as file reader and graph populator
  */
+#include <fstream>
 #include "graph.hpp"
 
 // Fast C++ style I/O
@@ -11,7 +12,58 @@ void fast() {
     std::cin.tie(nullptr);
 }
 
+// Function to read and add vertices from the names file
+void read_names(Graph& graph, const std::string& filename)
+{
+    std::ifstream namesFile(filename);
+    if (!namesFile) {
+        std::cerr << "Failed to open names file" << "\n";
+        return;
+    }   
+
+    std::string line;
+    while (std::getline(namesFile, line))
+    {
+        const char* p = line.c_str();
+        char* endptr;
+        uint32_t node_id = strtoul(p, &endptr, 10);
+        ++endptr;
+        std::string name = endptr;
+        graph.add_vertex(node_id, name);
+    }
+}
+
+// Read and add edges from the links file
+void read_links(Graph& graph, const std::string& filename)
+{
+    std::ifstream linksFile(filename);
+    if (!linksFile) {
+        std::cerr << "Failed to open links file" << "\n";
+        return;
+    }
+
+    std::string line;
+    while (std::getline(linksFile, line))
+    {
+        const char* p = line.c_str();
+        char* endptr;
+        uint32_t from_id = strtoul(p, &endptr, 10);
+        ++endptr;
+        uint32_t to_id = strtoul(endptr, nullptr, 10);
+        graph.add_edge(from_id, to_id);
+    }
+}
+
 int main() {
     fast();
+
+    Graph peopleGraph;
+
+    read_names(peopleGraph, "../data/wiki-namestest.txt");
+
+    read_links(peopleGraph, "../data/wiki-linkstest.txt");
+
+    std::cout << peopleGraph.graph_string() << std::endl;
+    
     return 0;
 }

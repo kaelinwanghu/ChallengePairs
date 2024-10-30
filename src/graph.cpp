@@ -6,17 +6,21 @@
 #include "graph.hpp"
 
 // The containers all handle it so no need to do much for graph constructor and destructor
-Graph::Graph() : edgeCount(0)
+Graph::Graph() : edge_count(0)
 { }
 
-Graph::~Graph() 
+Graph::~Graph()
 { }
 
 // Gets the size of the graph in terms of vertices
 uint32_t Graph::size() const
 {
-    std::lock_guard<std::mutex> lock(graph_mutex); // lock_guard is very useful for methods like these that have a well-defined scope
+    std::lock_guard<std::mutex> lock(graph_mutex);
+    return size_lockless();
+}
 
+uint32_t Graph::size_lockless() const
+{
     return key_to_id.size();
 }
 
@@ -24,8 +28,12 @@ uint32_t Graph::size() const
 uint32_t Graph::num_edges() const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
+    return num_edges_lockless();
+}
 
-    return edgeCount;
+uint32_t Graph::num_edges_lockless() const
+{
+    return edge_count;
 }
 
 // Adds a vertex to the graph if it does not already exist (names should all be unique)
@@ -54,7 +62,7 @@ bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id)
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
 
-    if (!has_vertex(from_id) || !has_vertex(to_id))
+    if (!has_vertex_lockless(from_id) || !has_vertex_lockless(to_id))
     {
         return false;
     }
@@ -70,7 +78,7 @@ bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id)
     successors.emplace_back(to_id);
     predecessor_list[to_id].emplace_back(from_id);
 
-    ++edgeCount;
+    ++edge_count;
 
     return true;
 }
@@ -79,7 +87,12 @@ bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id)
 bool Graph::has_vertex(const uint32_t node_id) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
+    return has_vertex_lockless(node_id);
+}
 
+// Checks whether the graph has a particular vertex without locking
+bool Graph::has_vertex_lockless(const uint32_t node_id) const
+{
     return id_to_key.find(node_id) != id_to_key.end();
 }
 
@@ -87,8 +100,13 @@ bool Graph::has_vertex(const uint32_t node_id) const
 bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
+    return has_edge_lockless(from_id, to_id);
+}
 
-    if (!has_vertex(from_id) || !has_vertex(to_id))
+// Checks whether the graph has a particular edge without locking
+bool Graph::has_edge_lockless(const uint32_t from_id, const uint32_t to_id) const
+{
+    if (!has_vertex_lockless(from_id) || !has_vertex_lockless(to_id))
     {
         return false;
     }
@@ -103,7 +121,7 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id)
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
 
-    if (!has_vertex(from_id) || !has_vertex(to_id))
+    if (!has_vertex_lockless(from_id) || !has_vertex_lockless(to_id))
     {
         return false;
     }
@@ -128,7 +146,7 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id)
         predecessors.erase(predecessor_find);
     }
 
-    --edgeCount;
+    --edge_count;
 
     return true;
 }
@@ -137,7 +155,12 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id)
 uint32_t Graph::out_degree(const uint32_t node_id) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
+    return out_degree_lockless(node_id);
+}
 
+// Calculates the out_degree of a node without locking
+uint32_t Graph::out_degree_lockless(const uint32_t node_id) const
+{
     const auto it = successor_list.find(node_id);
     if (it != successor_list.end())
     {
@@ -149,11 +172,16 @@ uint32_t Graph::out_degree(const uint32_t node_id) const
     }
 }
 
-// Calculates the out_degree of a node (how many edges end at it)
+// Calculates the in_degree of a node (how many edges end at it)
 uint32_t Graph::in_degree(const uint32_t node_id) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
+    return in_degree_lockless(node_id);
+}
 
+// Calculates the in_degree of a node without locking
+uint32_t Graph::in_degree_lockless(const uint32_t node_id) const
+{
     const auto it = predecessor_list.find(node_id);
     if (it != predecessor_list.end())
     {
@@ -169,8 +197,12 @@ uint32_t Graph::in_degree(const uint32_t node_id) const
 uint32_t Graph::get_node_id(const std::string& key) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
+    return get_node_id_lockless(key);
+}
 
-    // Fast HashSet search
+// Gets the node_id without locking
+uint32_t Graph::get_node_id_lockless(const std::string& key) const
+{
     const auto it = key_to_id.find(key);
     if (it != key_to_id.end())
     {
@@ -186,7 +218,12 @@ uint32_t Graph::get_node_id(const std::string& key) const
 std::string Graph::get_key(const uint32_t node_id) const
 {
     std::lock_guard<std::mutex> lock(graph_mutex);
+    return get_key_lockless(node_id);
+}
 
+// Gets the key without locking
+std::string Graph::get_key_lockless(const uint32_t node_id) const
+{
     const auto it = id_to_key.find(node_id);
     if (it != id_to_key.end())
     {
@@ -234,4 +271,34 @@ emhash8::HashSet<uint32_t, XXIntHasher> Graph::predecessor_set(const uint32_t no
     }
 
     return predecessors;
+}
+
+// Returns a string representation of the graph
+std::string Graph::graph_string() const
+{
+    std::lock_guard<std::mutex> lock(graph_mutex);
+
+    std::string result;
+    result.reserve(num_edges_lockless() + size_lockless());
+
+    const auto end = successor_list.end();
+    for (auto it = successor_list.begin(); it != end; ++it)
+    {
+        const std::string& node_name = get_key_lockless(it->first);
+        result += node_name + ": ";
+
+        const std::vector<uint32_t>& successors = it->second;
+        for (size_t i = 0; i < successors.size(); ++i)
+        {
+            const std::string& successor_name = get_key_lockless(successors[i]);
+            result += successor_name;
+            if (i != successors.size() - 1)
+            {
+                result += ", ";
+            }
+        }
+        result += "\n";
+    }
+
+    return result;
 }
