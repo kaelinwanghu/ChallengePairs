@@ -5,12 +5,14 @@
 #include <functional>
 #include <climits>
 #include <cmath>
+#include <mutex>
+#include <stack>
 #include "graph.hpp"
 
 namespace long_search
 {
 
-    std::vector<uint32_t> get_search_nodes(const Graph& graph);
+    const std::vector<uint32_t> get_search_nodes(const Graph& graph);
 
     // Ranks all initial nodes based on the combined sizes of successor and predecessor lists
     std::vector<uint32_t> rank_nodes(const Graph& graph);

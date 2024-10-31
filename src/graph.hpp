@@ -13,7 +13,6 @@
 #include <hash_set8.hpp>   // emhash8 hashset
 #include <xxhash.h>        // xxHash
 #include <stdint.h>        // For fixed-size integer types
-#include <mutex>           // For multithreading
 #include <vector>
 #include <string>
 
@@ -56,25 +55,16 @@ public:
 
     std::string graph_string() const;
 
-    std::vector<uint32_t> get_all_nodes() const;
+    const emhash8::HashSet<uint32_t, XXIntHasher>& successors(const uint32_t node_id) const;
+    const emhash8::HashSet<uint32_t, XXIntHasher>& predecessors(const uint32_t node_id) const;
 
-    emhash8::HashSet<uint32_t, XXIntHasher> successor_set(const uint32_t node_id) const;
-    emhash8::HashSet<uint32_t, XXIntHasher> predecessor_set(const uint32_t node_id) const;
+    using node_iterator = emhash8::HashMap<uint32_t, std::string, XXIntHasher>::const_iterator;    // The actual iterators so the entire graph can be traversed
+    node_iterator node_begin() const;
+    node_iterator node_end() const;
 
 private:
-    // Internal functions without locking
-    uint32_t size_lockless() const;
-    uint32_t num_edges_lockless() const;
-    bool has_vertex_lockless(const uint32_t node_id) const;
-    bool has_edge_lockless(const uint32_t from_id, const uint32_t to_id) const;
-    uint32_t out_degree_lockless(const uint32_t node_id) const;
-    uint32_t in_degree_lockless(const uint32_t node_id) const;
-    uint32_t get_node_id_lockless(const std::string& key) const;
-    std::string get_key_lockless(const uint32_t node_id) const;
-
-    // Might be changed in the future into a HashSet instead of a vector if it causes efficiency issues
-    emhash8::HashMap<uint32_t, std::vector<uint32_t>, XXIntHasher> successor_list;
-    emhash8::HashMap<uint32_t, std::vector<uint32_t>, XXIntHasher> predecessor_list;
+    emhash8::HashMap<uint32_t, emhash8::HashSet<uint32_t, XXIntHasher>, XXIntHasher> successor_set;
+    emhash8::HashMap<uint32_t, emhash8::HashSet<uint32_t, XXIntHasher>, XXIntHasher> predecessor_set;
 
     // Stores the string keys (person name) to their corresponding node_ids in uint32_t form
     emhash8::HashMap<std::string, uint32_t, XXStringHasher> key_to_id;
@@ -82,6 +72,4 @@ private:
     emhash8::HashMap<uint32_t, std::string, XXIntHasher> id_to_key;
 
     uint32_t edge_count;
-
-    mutable std::mutex graph_mutex;
 };

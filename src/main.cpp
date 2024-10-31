@@ -66,11 +66,13 @@ int main() {
 
     read_names(peopleGraph, "../data/wiki-livingpeople-names.txt");
 
+    auto end_name = std::chrono::high_resolution_clock::now();
+
     read_links(peopleGraph, "../data/wiki-livingpeople-links.txt");
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    // std::cout << peopleGraph.graph_string() << "\n";
+    std::cout << "Read names in " << ((std::chrono::duration_cast<std::chrono::milliseconds>(end_name - start)).count()) << "\n";
     std::cout << "Read " << peopleGraph.size() << " vertices with " << peopleGraph.num_edges() << " edges" << " in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end - start)).count() << " milliseconds";
     
     return 0;
