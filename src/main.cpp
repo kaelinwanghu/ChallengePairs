@@ -4,6 +4,8 @@
  * Description: Main function doubling as file reader and graph populator
  */
 #include <fstream>
+#include <chrono>
+#include <iostream>
 #include "graph.hpp"
 
 // Fast C++ style I/O
@@ -57,13 +59,19 @@ void read_links(Graph& graph, const std::string& filename)
 int main() {
     fast();
 
+    // Track the time
+    auto start = std::chrono::high_resolution_clock::now();
+
     Graph peopleGraph;
 
-    read_names(peopleGraph, "../data/wiki-namestest.txt");
+    read_names(peopleGraph, "../data/wiki-livingpeople-names.txt");
 
-    read_links(peopleGraph, "../data/wiki-linkstest.txt");
+    read_links(peopleGraph, "../data/wiki-livingpeople-links.txt");
 
-    std::cout << peopleGraph.graph_string() << std::endl;
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // std::cout << peopleGraph.graph_string() << "\n";
+    std::cout << "Read " << peopleGraph.size() << " vertices with " << peopleGraph.num_edges() << " edges" << " in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end - start)).count() << " milliseconds";
     
     return 0;
 }

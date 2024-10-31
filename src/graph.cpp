@@ -302,3 +302,11 @@ std::string Graph::graph_string() const
 
     return result;
 }
+
+// Gets all the nodes of the graph
+std::vector<uint32_t> Graph::get_all_nodes() const
+{
+    std::lock_guard<std::mutex> lock(graph_mutex);
+
+    return std::vector<uint32_t>(successor_list.begin(), successor_list.end());
+}

@@ -15,7 +15,6 @@
 #include <stdint.h>        // For fixed-size integer types
 #include <mutex>           // For multithreading
 #include <vector>
-#include <iostream>
 #include <string>
 
 // Note that the graph edges are around 3 million, so a uint32_t should suffice
@@ -57,6 +56,8 @@ public:
 
     std::string graph_string() const;
 
+    std::vector<uint32_t> get_all_nodes() const;
+
     emhash8::HashSet<uint32_t, XXIntHasher> successor_set(const uint32_t node_id) const;
     emhash8::HashSet<uint32_t, XXIntHasher> predecessor_set(const uint32_t node_id) const;
 
@@ -75,7 +76,9 @@ private:
     emhash8::HashMap<uint32_t, std::vector<uint32_t>, XXIntHasher> successor_list;
     emhash8::HashMap<uint32_t, std::vector<uint32_t>, XXIntHasher> predecessor_list;
 
+    // Stores the string keys (person name) to their corresponding node_ids in uint32_t form
     emhash8::HashMap<std::string, uint32_t, XXStringHasher> key_to_id;
+    // Stores the uint32_t node_ids to their corresponding keys (people names)
     emhash8::HashMap<uint32_t, std::string, XXIntHasher> id_to_key;
 
     uint32_t edge_count;
