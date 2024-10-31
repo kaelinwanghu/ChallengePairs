@@ -29,8 +29,8 @@ uint32_t Graph::num_edges() const
 // Adds a vertex to the graph if it does not already exist (names should all be unique)
 bool Graph::add_vertex(const uint32_t node_id, const std::string& key)
 {
-    // Check that they don't exist yet before adding vertex
-    if (key_to_id.find(key) != key_to_id.end() || id_to_key.find(node_id) != id_to_key.end())
+    // Check that the node doesn't exist yet before adding vertex
+    if (has_vertex(node_id))
     {
         return false;
     }
@@ -39,8 +39,8 @@ bool Graph::add_vertex(const uint32_t node_id, const std::string& key)
     id_to_key[node_id] = key;
 
     // Initialize vector successors and predecessors as well
-    successor_set[node_id] = emhash8::HashSet<uint32_t, XXIntHasher>();
-    predecessor_set[node_id] = emhash8::HashSet<uint32_t, XXIntHasher>();
+    successor_list[node_id] = std::vector<uint32_t>();
+    predecessor_list[node_id] = std::vector<uint32_t>();
 
     return true;
 }
@@ -53,16 +53,15 @@ bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id)
         return false;
     }
 
-    // Rather inefficient find, change in the future (auto is left for now)
-    auto& successors = successor_set[from_id];
-    if (successors.find(to_id) != successors.end())
+    auto& successors = successor_list[from_id];
+    if (std::find(successors.begin(), successors.end(), to_id) != successors.end())
     {
         return false;
     }
 
     // Emplace for both successors and predecessors
-    successors.emplace(to_id);
-    predecessor_set[to_id].emplace(from_id);
+    successors.emplace_back(to_id);
+    predecessor_list[to_id].emplace_back(from_id);
 
     ++edge_count;
 
@@ -84,8 +83,8 @@ bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id) const
     }
 
     // The graph is not extremely sparse but not extremely filled, so the change into HashSet might have to wait
-    const auto& successors = successor_set.at(from_id);
-    return successors.find(to_id) != successors.end();
+    const auto& successors = successor_list.at(from_id);
+    return std::find(successors.begin(), successors.end(), to_id) != successors.end();
 }
 
 // Removes an edge from the graph if it exists
@@ -98,7 +97,7 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id)
     }
 
     // Remove for both successors...
-    auto& successors = successor_set[from_id];
+    auto& successors = successor_list[from_id];
     const auto successor_find = std::find(successors.begin(), successors.end(), to_id);
     if (successor_find != successors.end())
     {
@@ -110,8 +109,8 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id)
     }
 
     // And predecessors
-    auto& predecessors = predecessor_set[to_id];
-    const auto predecessor_find = predecessors.find(from_id);
+    auto& predecessors = predecessor_list[to_id];
+    const auto predecessor_find = std::find(predecessors.begin(), predecessors.end(), from_id);
     if (predecessor_find != predecessors.end())
     {
         predecessors.erase(predecessor_find);
@@ -125,8 +124,8 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id)
 // Calculates the out_degree of a node (how many edges originate from it)
 uint32_t Graph::out_degree(const uint32_t node_id) const
 {
-    const auto it = successor_set.find(node_id);
-    if (it != successor_set.end())
+    const auto it = successor_list.find(node_id);
+    if (it != successor_list.end())
     {
         return static_cast<uint32_t>(it->second.size());
     }
@@ -140,8 +139,8 @@ uint32_t Graph::out_degree(const uint32_t node_id) const
 // Calculates the in_degree of a node (how many edges end at it)
 uint32_t Graph::in_degree(const uint32_t node_id) const
 {
-    const auto it = predecessor_set.find(node_id);
-    if (it != predecessor_set.end())
+    const auto it = predecessor_list.find(node_id);
+    if (it != predecessor_list.end())
     {
         return static_cast<uint32_t>(it->second.size());
     }
@@ -182,54 +181,57 @@ std::string Graph::get_key(const uint32_t node_id) const
 
 
 // Gets the successor set of a certain node
-const emhash8::HashSet<uint32_t, XXIntHasher>& Graph::successors(const uint32_t node_id) const
+const emhash8::HashSet<uint32_t, XXIntHasher> Graph::successors(const uint32_t node_id) const
 {
-    static const emhash8::HashSet<uint32_t, XXIntHasher> empty_set;
+    // Create a new HashSet and add all the relevant nodes to that successors HashSet
+    emhash8::HashSet<uint32_t, XXIntHasher> successor_set;
+    const auto it = successor_list.find(node_id);
+    if (it != successor_list.end())
+    {
+        for (const uint32_t successor_id : it->second)
+        {
+            successor_set.insert(successor_id);
+        }
 
-    const auto it = successor_set.find(node_id);
-    if (it != successor_set.end())
-    {
-        return it->second;
     }
-    else
-    {
-        return empty_set;
-    }
+
+    return successor_set;
 }
 
 // Gets the predecessor set of a certain node
-const emhash8::HashSet<uint32_t, XXIntHasher>& Graph::predecessors(const uint32_t node_id) const
+const emhash8::HashSet<uint32_t, XXIntHasher> Graph::predecessors(const uint32_t node_id) const
 {
-    static const emhash8::HashSet<uint32_t, XXIntHasher> empty_set;
+    // Create a new HashSet and add all the relevant nodes to that successors HashSet
+    emhash8::HashSet<uint32_t, XXIntHasher> predecessor_set;
+    const auto it = predecessor_list.find(node_id);
+    if (it != predecessor_list.end())
+    {
+        for (const uint32_t predecessor_id : it->second)
+        {
+            predecessor_set.insert(predecessor_id);
+        }
 
-    const auto it = predecessor_set.find(node_id);
-    if (it != predecessor_set.end())
-    {
-        return it->second;
     }
-    else
-    {
-        return empty_set;
-    }
+    return predecessor_set;
 }
 
 // Returns a string representation of the graph
 std::string Graph::graph_string() const
 {
     std::string result;
-    result.reserve(num_edges() + size());
+    result.reserve((num_edges() + size()) * 8);
 
-    for (const auto& pair : successor_set)
+    for (const auto& pair : successor_list)
     {
         const uint32_t node_id = pair.first;
         const std::string& node_name = get_key(node_id);
         result += node_name + ": ";
 
-        const emhash8::HashSet<uint32_t, XXIntHasher>& successors = pair.second;
+        const std::vector<uint32_t>& successor_ids = pair.second;
 
         // Formatting separator doesn't activate until after first element
         std::string separator = "";
-        for (const uint32_t successor_id : successors)
+        for (const uint32_t successor_id : successor_ids)
         {
             const std::string& successor_name = get_key(successor_id);
             result += separator + successor_name;

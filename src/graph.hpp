@@ -55,16 +55,16 @@ public:
 
     std::string graph_string() const;
 
-    const emhash8::HashSet<uint32_t, XXIntHasher>& successors(const uint32_t node_id) const;
-    const emhash8::HashSet<uint32_t, XXIntHasher>& predecessors(const uint32_t node_id) const;
+    const emhash8::HashSet<uint32_t, XXIntHasher> successors(const uint32_t node_id) const;
+    const emhash8::HashSet<uint32_t, XXIntHasher> predecessors(const uint32_t node_id) const;
 
     using node_iterator = emhash8::HashMap<uint32_t, std::string, XXIntHasher>::const_iterator;    // The actual iterators so the entire graph can be traversed
     node_iterator node_begin() const;
     node_iterator node_end() const;
 
 private:
-    emhash8::HashMap<uint32_t, emhash8::HashSet<uint32_t, XXIntHasher>, XXIntHasher> successor_set;
-    emhash8::HashMap<uint32_t, emhash8::HashSet<uint32_t, XXIntHasher>, XXIntHasher> predecessor_set;
+    emhash8::HashMap<uint32_t, std::vector<uint32_t>> successor_list;
+    emhash8::HashMap<uint32_t, std::vector<uint32_t>> predecessor_list;
 
     // Stores the string keys (person name) to their corresponding node_ids in uint32_t form
     emhash8::HashMap<std::string, uint32_t, XXStringHasher> key_to_id;
