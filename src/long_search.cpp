@@ -7,7 +7,8 @@ namespace long_search
     // Wrapper function for both of the phases, they are separate function because the secondary select might be discarded
     const std::vector<uint32_t> get_search_nodes(const Graph& graph)
     {
-        return refine_nodes(graph, rank_nodes(graph));
+        return rank_nodes(graph);
+        // return refine_nodes(graph, node_ids);
     }
 
     // Ranks all initial nodes based on the combined sizes of successor and predecessor lists
@@ -44,26 +45,26 @@ namespace long_search
     }
 
 
-    // Refines the list of nodes by considering second-layer connections as well
-    std::vector<uint32_t> refine_nodes(const Graph& graph, std::vector<uint32_t>& nodes)
-    {
-        // Again ort nodes in-place using a custom comparator
-        std::sort(nodes.begin(), nodes.end(), [&graph](uint32_t node1, uint32_t node2)
-        {
-            double rank1 = compute_refined_rank(graph, node1); // More thorough rank computation for top nodes
-            double rank2 = compute_refined_rank(graph, node2);
-            return rank1 > rank2; // Descending order for another truncation
-        });
+    // // Refines the list of nodes by considering second-layer connections as well
+    // std::vector<uint32_t> refine_nodes(const Graph& graph, std::vector<uint32_t>& nodes)
+    // {
+    //     // Again ort nodes in-place using a custom comparator
+    //     std::sort(nodes.begin(), nodes.end(), [&graph](uint32_t node1, uint32_t node2)
+    //     {
+    //         double rank1 = compute_refined_rank(graph, node1); // More thorough rank computation for top nodes
+    //         double rank2 = compute_refined_rank(graph, node2);
+    //         return rank1 > rank2; // Descending order for another truncation
+    //     });
 
-        // Calculate the number of nodes to select
-        size_t num_node = nodes.size();
-        size_t num_selected_nodes = static_cast<size_t>(std::ceil(num_node / INITIAL_INCLUSION));
+    //     // Calculate the number of nodes to select
+    //     size_t num_node = nodes.size();
+    //     size_t num_selected_nodes = static_cast<size_t>(std::ceil(num_node / INITIAL_INCLUSION));
 
-        // Truncate the vector to final search size
-        nodes.resize(num_selected_nodes);
+    //     // Truncate the vector to final search size
+    //     nodes.resize(num_selected_nodes);
 
-        return nodes;
-    }
+    //     return nodes;
+    // }
 
     // Inline function to compute the rank of a node
     inline uint32_t compute_rank(const Graph& graph, uint32_t node_id)
@@ -105,58 +106,120 @@ namespace long_search
         return first_rank + (largest_predecessor_in_degree + largest_successor_in_degree) / 2; // Integer division but it should not matter too much
     }
 
-        // Performs DFS from a starting node and stores the longest chain found
-    uint32_t dfs_search(const Graph& graph, uint32_t start_node, std::pair<uint32_t, uint32_t>& longest_chain, std::mutex& result_mutex)
+    // Limited BFS search for a node both backwards and forwards to get the longest_chain
+    uint32_t bfs_search(const Graph& graph, uint32_t start_node, std::pair<uint32_t, uint32_t>& longest_chain)
     {
-        // Stack for iterative DFS: each element is (current_node, path_length, chain_start_node)
-        std::stack<std::tuple<uint32_t, uint32_t, uint32_t>> dfs_stack;
-        dfs_stack.emplace(start_node, 1, start_node);
-        // Keep track of the maximum path length found and the corresponding end node
-        uint32_t max_length = 0;
-        uint32_t end_node = start_node;
-        // Visited set to avoid revisiting nodes
+        // Search heuristics
+        constexpr size_t MAX_BRANCH_FACTOR = 10;
+        constexpr size_t MIN_BRANCH_FACTOR = 2; // Try to ensure at least 2 paths
+
+        // Forward search (successors)
+        uint32_t max_forward_length = 1;
+        uint32_t forward_end_node = start_node;
         emhash8::HashSet<uint32_t, XXIntHasher> visited;
-
-        // Iterative DFS
-        while (!dfs_stack.empty())
         {
-            auto [current_node, path_length, chain_start_node] = dfs_stack.top();
-            dfs_stack.pop();
-
-            // If we've found a longer path, update max_length and end_node
-            if (path_length > max_length)
+            std::queue<std::pair<uint32_t, uint32_t>> bfs_queue; // [current_node, path_length]
+            bfs_queue.emplace(start_node, 1);
+            visited.insert(start_node);
+            while (!bfs_queue.empty())
             {
-                max_length = path_length;
-                end_node = current_node;
-            }
+                auto [current_node, path_length] = bfs_queue.front();
+                bfs_queue.pop();
 
-            // Mark the current node as visited
-            visited.insert(current_node);
-
-            // Get the successors of the current node
-            const auto& successors = graph.successors(current_node);
-
-            for (uint32_t successor : successors)
-            {
-                if (visited.find(successor) == visited.end())
+                if (path_length > max_forward_length)
                 {
-                    // Push the successor onto the stack with an incremented path length
-                    dfs_stack.emplace(successor, path_length + 1, chain_start_node);
+                    max_forward_length = path_length;
+                    forward_end_node = current_node;
+                }
+                // Get successors and sort them based on rank
+                const auto& successors = graph.successors(current_node);
+                std::vector<uint32_t> sorted_successors(successors.begin(), successors.end());
+                std::sort(sorted_successors.begin(), sorted_successors.end(),
+                    [&graph](uint32_t a, uint32_t b)
+                    {
+                        return compute_rank(graph, a) > compute_rank(graph, b);
+                    });
+
+                // Limit the number of successors to explore
+                // size_t num_successors = std::max(MIN_BRANCH_FACTOR, sorted_successors.size() / MAX_BRANCH_FACTOR);
+                size_t num_successors = sorted_successors.size();
+
+                // Continually add the successors while they are available and the limit has not been reached
+                size_t added_successors = 0;
+                size_t i = 0;
+                while (added_successors < num_successors && i < sorted_successors.size())
+                {
+                    uint32_t successor = sorted_successors[i];
+                    if (visited.find(successor) == visited.end())
+                    {
+                        // Add onto the stack with extra path length
+                        bfs_queue.emplace(successor, path_length + 1);
+                        visited.insert(successor);
+                        ++added_successors;
+                    }
+                    ++i; // Always increment index
                 }
             }
-
-            // Remove the current node from the visited set to allow other paths
-            visited.erase(current_node);
         }
-        // Update the longest chain using the result mutex for thread safety
+
+        // Backward search (predecessors)
+        uint32_t max_backward_length = 1;
+        uint32_t backward_end_node = start_node;
+        visited.clear();
+
         {
-            std::lock_guard<std::mutex> lock(result_mutex);
-            if (max_length > longest_chain.second)
+            std::queue<std::pair<uint32_t, uint32_t>> bfs_queue; // [current_node, path_length]
+
+            bfs_queue.emplace(start_node, 1);
+            visited.insert(start_node);
+
+            while (!bfs_queue.empty())
             {
-                longest_chain.first = start_node;
-                longest_chain.second = max_length;
+                auto [current_node, path_length] = bfs_queue.front();
+                bfs_queue.pop();
+
+                if (path_length > max_backward_length)
+                {
+                    max_backward_length = path_length;
+                    backward_end_node = current_node;
+                }
+
+                // Get predecessors and sort them based on rank
+                const auto& predecessors = graph.predecessors(current_node);
+                std::vector<uint32_t> sorted_predecessors(predecessors.begin(), predecessors.end());
+                std::sort(sorted_predecessors.begin(), sorted_predecessors.end(),
+                    [&graph](uint32_t a, uint32_t b)
+                    {
+                        return compute_rank(graph, a) > compute_rank(graph, b);
+                    });
+
+                // Limit the number of predecessors to explore
+                // size_t num_predecessors = std::max(MIN_BRANCH_FACTOR, sorted_predecessors.size() / MAX_BRANCH_FACTOR);
+                // num_predecessors = std::min(num_predecessors, MAX_BRANCH_FACTOR);
+                size_t num_predecessors = sorted_predecessors.size();
+
+                // Continually add the successors while they are available and the limit has not been reached
+                size_t added_predecessors = 0;
+                size_t i = 0;
+                while (added_predecessors < num_predecessors && i < sorted_predecessors.size())
+                {
+                    uint32_t predecessor = sorted_predecessors[i];
+                    if (visited.find(predecessor) == visited.end())
+                    {
+                        bfs_queue.emplace(predecessor, path_length + 1);
+                        visited.insert(predecessor);
+                        ++added_predecessors;
+                    }
+                    ++i;
+                }
             }
         }
-        return max_length;
+
+        // Combine the results
+        uint32_t total_length = max_backward_length + max_forward_length - 2; // avoid start_node double counting
+        longest_chain.first = backward_end_node; // Start node of the chain
+        longest_chain.second = forward_end_node; // End node of the chain
+
+        return total_length;
     }
 }

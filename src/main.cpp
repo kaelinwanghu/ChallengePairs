@@ -7,6 +7,7 @@
 #include <chrono>
 #include <iostream>
 #include "graph.hpp"
+#include "long_search.hpp"
 
 // Fast C++ style I/O
 void fast() {
@@ -62,18 +63,49 @@ int main() {
     // Track the time
     auto start = std::chrono::high_resolution_clock::now();
 
-    Graph peopleGraph;
+    Graph people_graph;
 
-    read_names(peopleGraph, "../data/wiki-livingpeople-names.txt");
+    read_names(people_graph, "../data/wiki-livingpeople-names.txt");
 
     auto end_name = std::chrono::high_resolution_clock::now();
 
-    read_links(peopleGraph, "../data/wiki-livingpeople-links.txt");
+    read_links(people_graph, "../data/wiki-livingpeople-links.txt");
 
-    auto end = std::chrono::high_resolution_clock::now();
+    auto end_link = std::chrono::high_resolution_clock::now();
 
-    std::cout << "Read names in " << ((std::chrono::duration_cast<std::chrono::milliseconds>(end_name - start)).count()) << "\n";
-    std::cout << "Read " << peopleGraph.size() << " vertices with " << peopleGraph.num_edges() << " edges" << " in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end - start)).count() << " milliseconds";
-    
+    std::cout << "Read names in " << ((std::chrono::duration_cast<std::chrono::milliseconds>(end_name - start)).count()) << " milliseconds\n";
+    std::cout << "Read " << people_graph.size() << " vertices with " << people_graph.num_edges() << " edges" << " in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_link - start).count()) << " milliseconds\n";
+
+    const std::vector<uint32_t> search_nodes =  long_search::get_search_nodes(people_graph);
+
+    auto end_node = std::chrono::high_resolution_clock::now();
+    std::cout << "Found " << search_nodes.size() << " densely-connected nodes in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_node - start)).count() << " milliseconds\n";
+
+    std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
+
+    // Loop over search_nodes and perform bfs_search
+    for (size_t i = 0; i < search_nodes.size(); i++)
+    {
+        std::pair<uint32_t, uint32_t> path;
+        uint32_t length = long_search::bfs_search(people_graph, search_nodes[i], path);
+        results.emplace_back(length, path.first, path.second);
+    }
+
+    // Sort the results in descending order based on length
+    std::sort(results.begin(), results.end(),
+        [](const auto& a, const auto& b)
+        {
+            return std::get<0>(a) > std::get<0>(b);
+        });
+
+    // Output the results
+    std::cout << "\nTop chains found:\n";
+    for (const auto& [length, start_node_id, end_node_id] : results)
+    {
+        std::string start_name = people_graph.get_key(start_node_id);
+        std::string end_name = people_graph.get_key(end_node_id);
+        std::cout << "Length: " << length << " | Starting person: " << start_name
+                  << " | Ending person: " << end_name << "\n";
+    }
     return 0;
 }
