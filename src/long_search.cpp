@@ -4,161 +4,103 @@
 
 namespace long_search
 {
-    // Wrapper function for both of the phases, they are separate function because the secondary select might be discarded
-    const std::vector<uint32_t> get_search_nodes(const Graph& graph)
-    {
-        return rank_nodes(graph);
-    }
-
-    // Ranks all initial nodes based on the combined sizes of successor and predecessor lists
-    std::vector<uint32_t> rank_nodes(const Graph& graph)
-    {
-        // Collect all node IDs into a vector
-        std::vector<uint32_t> node_ids;
-        node_ids.reserve(graph.size());
-        for (auto it = graph.node_begin(); it != graph.node_end(); ++it)
-        {
-            node_ids.emplace_back(it->first);
-        }
-
-        // Sort the node_ids based on rank in descending order using a lambda
-        std::sort(node_ids.begin(), node_ids.end(),
-        [&graph](uint32_t node1, uint32_t node2)
-            {
-                return compute_rank(graph, node1) > compute_rank(graph, node2);
-            });
-
-        // Calculate the number of nodes to select
-        size_t num_nodes = node_ids.size();
-        size_t num_selected_nodes = static_cast<size_t>(std::ceil(num_nodes * PERCENTILE));
-        if (num_selected_nodes > num_nodes)
-        {
-            num_selected_nodes = num_nodes; // Failsafe
-        }
-
-        // Truncate the vector to the desired size
-        node_ids.resize(num_selected_nodes);
-
-        return node_ids;
-    }
-
-    // Inline function to compute the rank of a node
     inline uint32_t compute_rank(const Graph& graph, uint32_t node_id)
     {
-        return graph.out_degree(node_id) + graph.in_degree(node_id);
+        return graph.get_scc_diameter(node_id);
     }
 
-    // Limited BFS search for a node both backwards and forwards to get the longest_chain
-    uint32_t bfs_search(const Graph& graph, uint32_t start_node, std::pair<uint32_t, uint32_t>& longest_chain)
+    uint32_t bfs_search(const Graph& graph, uint32_t start_node, std::vector<uint32_t>& longest_chain)
     {
-        constexpr size_t MAX_BRANCH_FACTOR = 10;
+        const size_t TOP_PATHS = 20; // Number of top paths to evaluate
 
-        // Forward search (successors)
-        uint32_t max_forward_length = 1;
-        uint32_t forward_end_node = start_node;
+        // Store sink nodes and their estimated lengths
+        std::vector<std::pair<uint32_t, uint32_t>> sink_nodes_with_estimates;
+
         emhash8::HashSet<uint32_t, XXIntHasher> visited;
+
+        // Priority queue: (negative estimated length for min-heap, current node, current path length)
+        std::priority_queue<std::tuple<int32_t, uint32_t, uint32_t>> bfs_queue;
+
+        // Initialize the BFS with the priority queue
+        uint32_t scc_diameter = graph.get_scc_diameter(start_node);
+        bfs_queue.emplace(-scc_diameter, start_node, 1);
+        visited.insert(start_node);
+
+        while (!bfs_queue.empty())
         {
-            std::queue<std::pair<uint32_t, uint32_t>> bfs_queue; // [current_node, path_length]
-            bfs_queue.emplace(start_node, 1);
-            visited.insert(start_node);
-            while (!bfs_queue.empty())
+            auto [negative_estimated_length, current_node, current_length] = bfs_queue.top();
+            bfs_queue.pop();
+
+            // Check if current_node is a sink node
+            if (graph.out_degree(current_node) == 0)
             {
-                auto [current_node, path_length] = bfs_queue.front();
-                bfs_queue.pop();
+                // Store sink node and estimated length
+                sink_nodes_with_estimates.emplace_back(current_node, -negative_estimated_length);
+                continue;
+            }
 
-                if (path_length > max_forward_length)
+            // Get successors of the current node
+            const auto& successors_set = graph.successors(current_node);
+            std::vector<uint32_t> successors(successors_set.begin(), successors_set.end());
+
+            // Sort successors based on SCC diameter (probably more accurate than size)
+            std::sort(successors.begin(), successors.end(),
+                [&graph](uint32_t a, uint32_t b) {
+                    return graph.get_scc_diameter(a) > graph.get_scc_diameter(b);
+                });
+
+            for (uint32_t successor : successors)
+            {
+                // Ensure linear runtime by processing it only if it has not already been visited
+                if (visited.find(successor) == visited.end())
                 {
-                    max_forward_length = path_length;
-                    forward_end_node = current_node;
-                }
-                // Get successors and sort them based on rank
-                const auto& successors = graph.successors(current_node);
-                std::vector<uint32_t> sorted_successors(successors.begin(), successors.end());
-                std::sort(sorted_successors.begin(), sorted_successors.end(),
-                    [&graph](uint32_t a, uint32_t b)
-                    {
-                        return compute_rank(graph, a) > compute_rank(graph, b);
-                    });
+                    visited.insert(successor);
 
-                // Limit the number of successors to explore
-                size_t num_successors = sorted_successors.size();
+                    // Estimate the total length
+                    uint32_t successor_scc_diameter = graph.get_scc_diameter(successor);
+                    uint32_t estimated_length = current_length + successor_scc_diameter;
 
-                // Continually add the successors while they are available and the limit has not been reached
-                size_t added_successors = 0;
-                size_t i = 0;
-                while (added_successors < num_successors && i < sorted_successors.size())
-                {
-                    uint32_t successor = sorted_successors[i];
-                    if (visited.find(successor) == visited.end())
-                    {
-                        // Add onto the stack with extra path length
-                        bfs_queue.emplace(successor, path_length + 1);
-                        visited.insert(successor);
-                        ++added_successors;
-                    }
-                    ++i; // Always increment index
+                    // Push onto the priority queue
+                    bfs_queue.emplace(-estimated_length, successor, current_length + 1);
                 }
             }
         }
 
-        // Backward search (predecessors)
-        uint32_t max_backward_length = 1;
-        uint32_t backward_end_node = start_node;
-        visited.clear();
+        // Sort sink nodes by estimated length in descending order
+        std::sort(sink_nodes_with_estimates.begin(), sink_nodes_with_estimates.end(),
+            [](const std::pair<uint32_t, uint32_t>& a, const std::pair<uint32_t, uint32_t>& b) {
+                return a.second > b.second;
+            });
 
+        // Keep only the top sink node paths
+        if (sink_nodes_with_estimates.size() > TOP_PATHS)
         {
-            std::queue<std::pair<uint32_t, uint32_t>> bfs_queue; // [current_node, path_length]
-
-            bfs_queue.emplace(start_node, 1);
-            visited.insert(start_node);
-
-            while (!bfs_queue.empty())
-            {
-                auto [current_node, path_length] = bfs_queue.front();
-                bfs_queue.pop();
-
-                if (path_length > max_backward_length)
-                {
-                    max_backward_length = path_length;
-                    backward_end_node = current_node;
-                }
-
-                // Get predecessors and sort them based on rank
-                const auto& predecessors = graph.predecessors(current_node);
-                std::vector<uint32_t> sorted_predecessors(predecessors.begin(), predecessors.end());
-                std::sort(sorted_predecessors.begin(), sorted_predecessors.end(),
-                    [&graph](uint32_t a, uint32_t b)
-                    {
-                        return compute_rank(graph, a) > compute_rank(graph, b);
-                    });
-
-                // Limit the number of predecessors to explore
-                size_t num_predecessors = sorted_predecessors.size();
-
-                // Continually add the successors while they are available and the limit has not been reached
-                size_t added_predecessors = 0;
-                size_t i = 0;
-                while (added_predecessors < num_predecessors && i < sorted_predecessors.size())
-                {
-                    uint32_t predecessor = sorted_predecessors[i];
-                    if (visited.find(predecessor) == visited.end())
-                    {
-                        bfs_queue.emplace(predecessor, path_length + 1);
-                        visited.insert(predecessor);
-                        ++added_predecessors;
-                    }
-                    ++i;
-                }
-            }
+            sink_nodes_with_estimates.resize(TOP_PATHS);
         }
 
-        // Combine the results
-        uint32_t total_length = max_backward_length + max_forward_length - 2; // avoid start_node double counting
-        longest_chain.first = backward_end_node; // Start node of the chain
-        longest_chain.second = forward_end_node; // End node of the chain
+        // Then evaluate the actual shortest paths for the top sink nodes
+        uint32_t max_path_length = 0;
+        std::vector<uint32_t> best_path;
 
-        // port over the shortest path to check afterwards
+    for (const auto& [sink_node, estimated_length] : sink_nodes_with_estimates)
+    {
+        // Compute the shortest path from start_node to sink_node
+        std::deque<uint32_t> path = graph.shortest_path(start_node, sink_node);
 
-        return total_length;
+        uint32_t path_length = static_cast<uint32_t>(path.size());
+
+        if (path_length > max_path_length)
+        {
+            max_path_length = path_length;
+
+            // Store the best path
+            best_path.assign(path.begin(), path.end());
+        }
+    }
+        // Set the longest chain to the best path found
+        longest_chain = best_path;
+
+        // Return the length of the longest path
+        return max_path_length;
     }
 }

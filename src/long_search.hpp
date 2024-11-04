@@ -23,10 +23,6 @@ namespace long_search
     uint32_t bfs_search(const Graph& graph, uint32_t start_node, std::pair<uint32_t, uint32_t>& longest_chain);
 
     // Multithreading DFS search manager to start and manage the bfs on multiple threads
-    void multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes, std::vector<std::vector<uint32_t>>& results);
-
-    constexpr uint32_t MIN_CHAIN_LENGTH = 8;
-    constexpr double PERCENTILE = 0.0001;
-    constexpr double INITIAL_INCLUSION = 1.5;
+    uint32_t multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes, std::vector<std::pair<uint32_t, uint32_t>>& results);
 
 }

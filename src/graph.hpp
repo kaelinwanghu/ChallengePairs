@@ -57,13 +57,18 @@ public:
 
     std::string graph_string() const;
 
-    std::deque<std::string> shortestPath(const uint32_t start, const uint32_t end) const;
+    std::deque<uint32_t> shortest_path(const uint32_t start, const uint32_t end) const;
 
     const emhash8::HashSet<uint32_t, XXIntHasher> successors(const uint32_t node_id) const;
     const emhash8::HashSet<uint32_t, XXIntHasher> predecessors(const uint32_t node_id) const;
 
+    void compute_scc_diameters();
+
+    // Get the diameter of the SCC that the node is in (if any)
+    uint32_t get_scc_diameter(uint32_t node_id) const;
+
     Graph collapse_cliques() const;
-    std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> get_all_strongly_connected_components() const;
+    std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> find_all_strongly_connected_components() const;
 
     using node_iterator = emhash8::HashMap<uint32_t, std::string, XXIntHasher>::const_iterator;    // The actual iterators so the entire graph can be traversed
     node_iterator node_begin() const;
@@ -77,6 +82,12 @@ private:
     emhash8::HashMap<std::string, uint32_t, XXStringHasher> key_to_id;
     // Stores the uint32_t node_ids to their corresponding keys (people names)
     emhash8::HashMap<uint32_t, std::string, XXIntHasher> id_to_key;
+
+    // Map from node ID to SCC ID
+    emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> node_to_scc_id;
+
+    // Map from SCC ID to SCC diameter
+    emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> scc_id_to_diameter;
 
     uint32_t edge_count;
 };

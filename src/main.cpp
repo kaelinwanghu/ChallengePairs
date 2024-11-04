@@ -82,9 +82,23 @@ int main() {
 
     auto end_collapse = std::chrono::high_resolution_clock::now();
 
-    std::cout << "collapsed graph size: " << collapsed_people_graph.size() << " and edge number: " << collapsed_people_graph.num_edges() << "\n";
-    std::cout << "clique collapsed in: " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_collapse - start).count()) << " milliseconds";
+    std::cout << "collapsed graph size: " << collapsed_people_graph.size() << " | edge number: " << collapsed_people_graph.num_edges() << "\n";
+    std::cout << "clique collapsed in: " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_collapse - start).count()) << " milliseconds\n";
 
+    uint32_t no_successors = 0, no_predecessors = 0;
+    for (auto it = collapsed_people_graph.node_begin(); it != collapsed_people_graph.node_end(); ++it)
+    {
+        if (collapsed_people_graph.successors(it->first).size() == 0)
+        {
+            ++no_successors;
+        }
+        else if (collapsed_people_graph.predecessors(it->first).size() == 0)
+        {
+            ++no_predecessors;
+        }
+    }
+
+    std::cout << "collapsed graph has: " << no_predecessors << " nodes with no predecessors, and " << no_successors << " nodes with no successors\n";
     // std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
 
     // std::pair<uint32_t, uint32_t> path;
