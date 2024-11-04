@@ -83,10 +83,10 @@ int main() {
 
     std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
 
+    std::pair<uint32_t, uint32_t> path;
     // Loop over search_nodes and perform bfs_search
     for (size_t i = 0; i < search_nodes.size(); i++)
     {
-        std::pair<uint32_t, uint32_t> path;
         uint32_t length = long_search::bfs_search(people_graph, search_nodes[i], path);
         results.emplace_back(length, path.first, path.second);
     }

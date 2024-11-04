@@ -8,13 +8,11 @@ namespace long_search
     const std::vector<uint32_t> get_search_nodes(const Graph& graph)
     {
         return rank_nodes(graph);
-        // return refine_nodes(graph, node_ids);
     }
 
     // Ranks all initial nodes based on the combined sizes of successor and predecessor lists
     std::vector<uint32_t> rank_nodes(const Graph& graph)
     {
-
         // Collect all node IDs into a vector
         std::vector<uint32_t> node_ids;
         node_ids.reserve(graph.size());
@@ -32,7 +30,7 @@ namespace long_search
 
         // Calculate the number of nodes to select
         size_t num_nodes = node_ids.size();
-        size_t num_selected_nodes = static_cast<size_t>(std::ceil(num_nodes * PERCENTILE * INITIAL_INCLUSION));
+        size_t num_selected_nodes = static_cast<size_t>(std::ceil(num_nodes * PERCENTILE));
         if (num_selected_nodes > num_nodes)
         {
             num_selected_nodes = num_nodes; // Failsafe
@@ -44,74 +42,16 @@ namespace long_search
         return node_ids;
     }
 
-
-    // // Refines the list of nodes by considering second-layer connections as well
-    // std::vector<uint32_t> refine_nodes(const Graph& graph, std::vector<uint32_t>& nodes)
-    // {
-    //     // Again ort nodes in-place using a custom comparator
-    //     std::sort(nodes.begin(), nodes.end(), [&graph](uint32_t node1, uint32_t node2)
-    //     {
-    //         double rank1 = compute_refined_rank(graph, node1); // More thorough rank computation for top nodes
-    //         double rank2 = compute_refined_rank(graph, node2);
-    //         return rank1 > rank2; // Descending order for another truncation
-    //     });
-
-    //     // Calculate the number of nodes to select
-    //     size_t num_node = nodes.size();
-    //     size_t num_selected_nodes = static_cast<size_t>(std::ceil(num_node / INITIAL_INCLUSION));
-
-    //     // Truncate the vector to final search size
-    //     nodes.resize(num_selected_nodes);
-
-    //     return nodes;
-    // }
-
     // Inline function to compute the rank of a node
     inline uint32_t compute_rank(const Graph& graph, uint32_t node_id)
     {
         return graph.out_degree(node_id) + graph.in_degree(node_id);
     }
 
-    /* Inline function to compute the refined rank of a node passing the first round.
-    Doing this because the concentration of values will be relatively high (i.e most people will have between 0-20 links) */
-    inline uint32_t compute_refined_rank(const Graph& graph, uint32_t node_id)
-    {
-        uint32_t first_rank = compute_rank(graph, node_id);
-
-        // Second-degree ranks 
-        uint32_t largest_predecessor_in_degree = 0;
-        uint32_t largest_successor_in_degree = 0;
-        // Get predecessors max
-        emhash8::HashSet<uint32_t, XXIntHasher> predecessors = graph.predecessors(node_id);
-        for (uint32_t predecessor_id : predecessors)
-        {
-            uint32_t predecessor_in_degree = graph.in_degree(predecessor_id);
-            if (predecessor_in_degree > largest_predecessor_in_degree)
-            {
-                largest_predecessor_in_degree = predecessor_in_degree;
-            }
-        }
-        // Get successors max
-        emhash8::HashSet<uint32_t, XXIntHasher> successors = graph.successors(node_id);
-        for (uint32_t successor_id : successors)
-        {
-            uint32_t successor_in_degree = graph.in_degree(successor_id);
-            if (successor_in_degree > largest_successor_in_degree)
-            {
-                largest_successor_in_degree = successor_in_degree;
-            }
-        }
-
-        // Compute the refined rank with weighting (second weighs less than first but should still be worth something)
-        return first_rank + (largest_predecessor_in_degree + largest_successor_in_degree) / 2; // Integer division but it should not matter too much
-    }
-
     // Limited BFS search for a node both backwards and forwards to get the longest_chain
     uint32_t bfs_search(const Graph& graph, uint32_t start_node, std::pair<uint32_t, uint32_t>& longest_chain)
     {
-        // Search heuristics
         constexpr size_t MAX_BRANCH_FACTOR = 10;
-        constexpr size_t MIN_BRANCH_FACTOR = 2; // Try to ensure at least 2 paths
 
         // Forward search (successors)
         uint32_t max_forward_length = 1;
@@ -141,7 +81,6 @@ namespace long_search
                     });
 
                 // Limit the number of successors to explore
-                // size_t num_successors = std::max(MIN_BRANCH_FACTOR, sorted_successors.size() / MAX_BRANCH_FACTOR);
                 size_t num_successors = sorted_successors.size();
 
                 // Continually add the successors while they are available and the limit has not been reached
@@ -194,8 +133,6 @@ namespace long_search
                     });
 
                 // Limit the number of predecessors to explore
-                // size_t num_predecessors = std::max(MIN_BRANCH_FACTOR, sorted_predecessors.size() / MAX_BRANCH_FACTOR);
-                // num_predecessors = std::min(num_predecessors, MAX_BRANCH_FACTOR);
                 size_t num_predecessors = sorted_predecessors.size();
 
                 // Continually add the successors while they are available and the limit has not been reached
@@ -219,6 +156,8 @@ namespace long_search
         uint32_t total_length = max_backward_length + max_forward_length - 2; // avoid start_node double counting
         longest_chain.first = backward_end_node; // Start node of the chain
         longest_chain.second = forward_end_node; // End node of the chain
+
+        // port over the shortest path to check afterwards
 
         return total_length;
     }

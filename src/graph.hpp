@@ -15,6 +15,8 @@
 #include <stdint.h>        // For fixed-size integer types
 #include <vector>
 #include <string>
+#include <stack>
+#include <queue>
 
 // Note that the graph edges are around 3 million, so a uint32_t should suffice
 
@@ -55,8 +57,13 @@ public:
 
     std::string graph_string() const;
 
+    std::deque<std::string> shortestPath(const uint32_t start, const uint32_t end) const;
+
     const emhash8::HashSet<uint32_t, XXIntHasher> successors(const uint32_t node_id) const;
     const emhash8::HashSet<uint32_t, XXIntHasher> predecessors(const uint32_t node_id) const;
+
+    Graph Graph::collapse_cliques() const;
+    std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::get_all_strongly_connected_components() const;
 
     using node_iterator = emhash8::HashMap<uint32_t, std::string, XXIntHasher>::const_iterator;    // The actual iterators so the entire graph can be traversed
     node_iterator node_begin() const;
