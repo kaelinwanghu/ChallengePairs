@@ -62,8 +62,8 @@ public:
     const emhash8::HashSet<uint32_t, XXIntHasher> successors(const uint32_t node_id) const;
     const emhash8::HashSet<uint32_t, XXIntHasher> predecessors(const uint32_t node_id) const;
 
-    Graph Graph::collapse_cliques() const;
-    std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::get_all_strongly_connected_components() const;
+    Graph collapse_cliques() const;
+    std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> get_all_strongly_connected_components() const;
 
     using node_iterator = emhash8::HashMap<uint32_t, std::string, XXIntHasher>::const_iterator;    // The actual iterators so the entire graph can be traversed
     node_iterator node_begin() const;

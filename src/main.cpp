@@ -78,34 +78,38 @@ int main() {
 
     const std::vector<uint32_t> search_nodes =  long_search::get_search_nodes(people_graph);
 
-    auto end_node = std::chrono::high_resolution_clock::now();
-    std::cout << "Found " << search_nodes.size() << " densely-connected nodes in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_node - start)).count() << " milliseconds\n";
+    Graph collapsed_people_graph = people_graph.collapse_cliques();
 
-    std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
+    auto end_collapse = std::chrono::high_resolution_clock::now();
 
-    std::pair<uint32_t, uint32_t> path;
-    // Loop over search_nodes and perform bfs_search
-    for (size_t i = 0; i < search_nodes.size(); i++)
-    {
-        uint32_t length = long_search::bfs_search(people_graph, search_nodes[i], path);
-        results.emplace_back(length, path.first, path.second);
-    }
+    std::cout << "collapsed graph size: " << collapsed_people_graph.size() << " and edge number: " << collapsed_people_graph.num_edges() << "\n";
+    std::cout << "clique collapsed in: " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_collapse - start).count()) << " milliseconds";
 
-    // Sort the results in descending order based on length
-    std::sort(results.begin(), results.end(),
-        [](const auto& a, const auto& b)
-        {
-            return std::get<0>(a) > std::get<0>(b);
-        });
+    // std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
 
-    // Output the results
-    std::cout << "\nTop chains found:\n";
-    for (const auto& [length, start_node_id, end_node_id] : results)
-    {
-        std::string start_name = people_graph.get_key(start_node_id);
-        std::string end_name = people_graph.get_key(end_node_id);
-        std::cout << "Length: " << length << " | Starting person: " << start_name
-                  << " | Ending person: " << end_name << "\n";
-    }
+    // std::pair<uint32_t, uint32_t> path;
+    // // Loop over search_nodes and perform bfs_search
+    // for (size_t i = 0; i < search_nodes.size(); i++)
+    // {
+    //     uint32_t length = long_search::bfs_search(people_graph, search_nodes[i], path);
+    //     results.emplace_back(length, path.first, path.second);
+    // }
+
+    // // Sort the results in descending order based on length
+    // std::sort(results.begin(), results.end(),
+    //     [](const auto& a, const auto& b)
+    //     {
+    //         return std::get<0>(a) > std::get<0>(b);
+    //     });
+
+    // // Output the results
+    // std::cout << "\nTop chains found:\n";
+    // for (const auto& [length, start_node_id, end_node_id] : results)
+    // {
+    //     std::string start_name = people_graph.get_key(start_node_id);
+    //     std::string end_name = people_graph.get_key(end_node_id);
+    //     std::cout << "Length: " << length << " | Starting person: " << start_name
+    //               << " | Ending person: " << end_name << "\n";
+    // }
     return 0;
 }

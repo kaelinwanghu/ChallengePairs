@@ -4,6 +4,7 @@
  * Description: Efficient graph class implementation
  */
 #include "graph.hpp"
+#include <iostream>
 
 // The containers all handle it so no need to do much for graph constructor and destructor
 Graph::Graph() : edge_count(0)
@@ -299,10 +300,10 @@ Graph Graph::collapse_cliques() const
 
     // Map each node to its collapsed node ID
     emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> collapsed_node_id;
-    collapsed_node_id.reserve(size());  // Reserve space to improve performance
+    collapsed_node_id.reserve(size()); 
 
-    // Counter for new node IDs for SCCs of size >1
-    uint32_t next_scc_node_id = size();  // Start after existing node IDs to avoid conflicts
+    // Counter for new node IDs for bigger SCC
+    uint32_t next_scc_node_id = size();  // Start after existing node IDs
 
     // Set to keep track of collapsed node IDs already added to the collapsed graph
     emhash8::HashSet<uint32_t, XXIntHasher> added_nodes;
@@ -322,28 +323,21 @@ Graph Graph::collapse_cliques() const
             // Add the node to the collapsed graph if not already added
             if (added_nodes.find(node_id) == added_nodes.end())
             {
-                std::string key = get_key(node_id);
-                collapsed_graph.add_vertex(node_id, key);
-                added_nodes.insert(node_id);
+                collapsed_graph.add_vertex(node_id, get_key(node_id));
+                added_nodes.emplace(node_id);
             }
         }
         else
         {
             // For SCCs of size greater than 1, assign a new node ID
             uint32_t scc_node_id = next_scc_node_id++;
-
             for (uint32_t node_id : scc)
             {
                 collapsed_node_id[node_id] = scc_node_id;
             }
-
-            // Add the SCC node to the collapsed graph if not already added
-            if (added_nodes.find(scc_node_id) == added_nodes.end())
-            {
-                std::string scc_key = "SCC_" + std::to_string(scc_node_id);
-                collapsed_graph.add_vertex(scc_node_id, scc_key);
-                added_nodes.insert(scc_node_id);
-            }
+            std::string scc_key = "SCC_" + std::to_string(scc_node_id);
+            collapsed_graph.add_vertex(scc_node_id, scc_key);
+            added_nodes.insert(scc_node_id);
         }
     }
 
@@ -359,23 +353,19 @@ Graph Graph::collapse_cliques() const
     added_edges.reserve(num_edges());  // Reserve space based on the number of edges (overestimate but avoids reallocatoin)
 
     // Add edges between collapsed nodes
-    for (const auto& [node_id, successors_vec] : successor_list)
+    for (const auto& [node_id, successors_list] : successor_list)
     {
-        uint32_t from_collapsed_node_id = collapsed_node_id[node_id];
-        for (uint32_t successor_id : successors_vec)
+        uint32_t from_collapsed_node = collapsed_node_id[node_id];
+        for (uint32_t successor_id : successors_list)
         {
-            uint32_t to_collapsed_node_id = collapsed_node_id[successor_id];
+            uint32_t to_collapsed_node = collapsed_node_id[successor_id];
 
-            std::pair<uint32_t, uint32_t> edge = { from_collapsed_node_id, to_collapsed_node_id };
+            std::pair<uint32_t, uint32_t> edge = { from_collapsed_node, to_collapsed_node };
 
-            // Check if the edge between these nodes has already been added
-            if (added_edges.find(edge) == added_edges.end())
+            // Check if the edge between these nodes has already been added and avoid self-referencing the same component
+            if (added_edges.find(edge) == added_edges.end() && from_collapsed_node != to_collapsed_node)
             {
-                // Avoid self-referencing
-                if (from_collapsed_node_id != to_collapsed_node_id)
-                {
-                    collapsed_graph.add_edge(from_collapsed_node_id, to_collapsed_node_id);
-                }
+                collapsed_graph.add_edge(from_collapsed_node, to_collapsed_node);
                 added_edges.emplace(edge);
             }
         }
@@ -387,6 +377,16 @@ Graph Graph::collapse_cliques() const
 
 std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::get_all_strongly_connected_components() const
 {
+    // Stack frame for recursion simulator in the stack
+    struct stack_frame {
+    uint32_t node_id;
+    std::vector<uint32_t>::const_iterator successor_it;
+    std::vector<uint32_t>::const_iterator successors_end;
+    bool visited;
+    stack_frame(const uint32_t _node_id, const std::vector<uint32_t>::const_iterator _begin,
+    const std::vector<uint32_t>::const_iterator _end, const bool _visited)
+    : node_id(_node_id), successor_it(_begin), successors_end(_end), visited(_visited) {}
+};
     // Map each node to its index in the search order
     emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> node_index;
     // Map each node to the lowest index reachable from it (lowlink value)
@@ -412,44 +412,38 @@ std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::get_all_strongly_con
         if (visited_nodes.find(node_id) == visited_nodes.end())
         {
             // Stack to simulate recursive DFS iteratively
-            struct stack_frame {
-                uint32_t node_id;
-                std::vector<uint32_t>::const_iterator successor_it;
-                std::vector<uint32_t>::const_iterator successors_end;
-                bool visited;
-            };
             std::stack<stack_frame> dfs_stack;
 
             // Start from the current node 
             const auto& successors = successor_list.at(node_id);
             dfs_stack.emplace(node_id, successors.begin(), successors.end(), false);
-
             while (!dfs_stack.empty())
             {
                 stack_frame& current_frame = dfs_stack.top();
                 uint32_t current_node = current_frame.node_id;
+                bool has_successors = false; // Controls the recursion flow
 
                 // First time visiting this node
                 if (!current_frame.visited)
                 {
                     node_index[current_node] = current_index;
                     node_lowlink[current_node] = current_index;
-                    current_index++;
+                    ++current_index;
                     visited_nodes.insert(current_node);
                     data_stack.emplace(current_node);
                     on_stack.insert(current_node);
                     current_frame.visited = true;
                 }
-
                 // Process all successors of the current node
                 while (current_frame.successor_it != current_frame.successors_end)
                 {
-                    uint32_t successor_node = *current_frame.successor_it++;
+                    uint32_t successor_node = *(current_frame.successor_it++);
                     if (visited_nodes.find(successor_node) == visited_nodes.end())
                     {
                         // Successor node has not been visited; recurse on it
                         const auto& successor_successors = successor_list.at(successor_node);
                         dfs_stack.emplace(successor_node, successor_successors.begin(), successor_successors.end(), false);
+                        has_successors = true;
                         break; // Pause processing current node for the next node
                     }
                     else if (on_stack.find(successor_node) != on_stack.end())
@@ -457,6 +451,12 @@ std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::get_all_strongly_con
                         // If node has been visited is still on the stack, update the current's lowlink with that node
                         node_lowlink[current_node] = std::min(node_lowlink[current_node], node_index[successor_node]);
                     }
+                }
+
+                // So that if a successor was being emplaced it skips the popping
+                if (has_successors)
+                {
+                    continue;
                 }
 
                 // Found a root node of a component if lowlink is same as the index
