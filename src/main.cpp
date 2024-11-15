@@ -10,9 +10,11 @@
 #include "long_search.hpp"
 
 // Fast C++ style I/O
-void fast() {
+void fast()
+{
     std::ios_base::sync_with_stdio(false);
     std::cin.tie(nullptr);
+    std::cout.tie(nullptr);
 }
 
 // Function to read and add vertices from the names file
@@ -57,7 +59,8 @@ void read_links(Graph& graph, const std::string& filename)
     }
 }
 
-int main() {
+int main()
+{
     fast();
 
     // Track the time
@@ -76,54 +79,39 @@ int main() {
     std::cout << "Read names in " << ((std::chrono::duration_cast<std::chrono::milliseconds>(end_name - start)).count()) << " milliseconds\n";
     std::cout << "Read " << people_graph.size() << " vertices with " << people_graph.num_edges() << " edges" << " in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_link - start).count()) << " milliseconds\n";
 
-    const std::vector<uint32_t> search_nodes =  long_search::get_search_nodes(people_graph);
-
     Graph collapsed_people_graph = people_graph.collapse_cliques();
 
     auto end_collapse = std::chrono::high_resolution_clock::now();
 
-    std::cout << "collapsed graph size: " << collapsed_people_graph.size() << " | edge number: " << collapsed_people_graph.num_edges() << "\n";
     std::cout << "clique collapsed in: " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_collapse - start).count()) << " milliseconds\n";
 
-    uint32_t no_successors = 0, no_predecessors = 0;
+    std::vector<uint32_t> source_nodes;
+    source_nodes.reserve(75000); // Trust me (again)
     for (auto it = collapsed_people_graph.node_begin(); it != collapsed_people_graph.node_end(); ++it)
     {
-        if (collapsed_people_graph.successors(it->first).size() == 0)
+        if (collapsed_people_graph.predecessors(it->first).size() == 0)
         {
-            ++no_successors;
-        }
-        else if (collapsed_people_graph.predecessors(it->first).size() == 0)
-        {
-            ++no_predecessors;
+            source_nodes.emplace_back(it->first);
         }
     }
 
-    std::cout << "collapsed graph has: " << no_predecessors << " nodes with no predecessors, and " << no_successors << " nodes with no successors\n";
-    // std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
+    auto search_start = std::chrono::high_resolution_clock::now();
 
-    // std::pair<uint32_t, uint32_t> path;
-    // // Loop over search_nodes and perform bfs_search
-    // for (size_t i = 0; i < search_nodes.size(); i++)
-    // {
-    //     uint32_t length = long_search::bfs_search(people_graph, search_nodes[i], path);
-    //     results.emplace_back(length, path.first, path.second);
-    // }
+    source_nodes.resize(2000);
+    std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results = long_search::multithread_search(people_graph, source_nodes);
 
-    // // Sort the results in descending order based on length
-    // std::sort(results.begin(), results.end(),
-    //     [](const auto& a, const auto& b)
-    //     {
-    //         return std::get<0>(a) > std::get<0>(b);
-    //     });
+    auto search_end = std::chrono::high_resolution_clock::now();
 
-    // // Output the results
-    // std::cout << "\nTop chains found:\n";
-    // for (const auto& [length, start_node_id, end_node_id] : results)
-    // {
-    //     std::string start_name = people_graph.get_key(start_node_id);
-    //     std::string end_name = people_graph.get_key(end_node_id);
-    //     std::cout << "Length: " << length << " | Starting person: " << start_name
-    //               << " | Ending person: " << end_name << "\n";
-    // }
+    std::cout << "BFS searches completed in: " 
+        << (std::chrono::duration_cast<std::chrono::milliseconds>(search_end - search_start)).count() 
+        << " milliseconds\n";
+
+    if (!results.empty())
+    {
+        const auto& best_chain = results.front();
+        std::cout << "Source node: " << people_graph.get_key(std::get<0>(best_chain))
+            << " | Sink node: " << people_graph.get_key(std::get<1>(best_chain))
+            << " | Length: " << std::get<2>(best_chain) << "\n";
+    }
     return 0;
 }

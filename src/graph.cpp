@@ -184,16 +184,12 @@ std::string Graph::get_key(const uint32_t node_id) const
 // Gets the successor set of a certain node
 const std::vector<uint32_t>& Graph::successors(const uint32_t node_id) const
 {
-    static const std::vector<uint32_t> empty_vector;  // For when node isn't found
-    const auto it = successor_list.find(node_id);
-    return (it != successor_list.end()) ? it->second : empty_vector;
+    return successor_list.at(node_id);
 }
 
 const std::vector<uint32_t>& Graph::predecessors(const uint32_t node_id) const
 {
-    static const std::vector<uint32_t> empty_vector;  // For when node isn't found
-    const auto it = predecessor_list.find(node_id);
-    return (it != predecessor_list.end()) ? it->second : empty_vector;
+    return predecessor_list.at(node_id);
 }
 
 // Returns a string representation of the graph
@@ -224,69 +220,81 @@ std::string Graph::graph_string() const
     return result;
 }
 
-// Finds the shortest path from one node to another
 std::deque<uint32_t> Graph::shortest_path(const uint32_t start, const uint32_t end) const
 {
+    // Early validation
     if (!has_vertex(start) || !has_vertex(end))
     {
-        return std::deque<uint32_t>(); // Return an empty path if start or end node doesn't exist
+        return std::deque<uint32_t>();
     }
 
-    // Map to keep track of the path (child node -> parent node)
+    // If start and end are the same, return single-node path
+    if (start == end)
+    {
+        return std::deque<uint32_t>{start};
+    }
+
+    // Pre-allocate with reasonable sizes
     emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> parent_map;
-    // Set to keep track of visited nodes
     emhash8::HashSet<uint32_t, XXIntHasher> visited_nodes;
-    // Deque for fast BFS traversal
     std::deque<uint32_t> bfs_queue;
-
-    // Initialize BFS
+    
+    parent_map.reserve(size() / 4);
+    visited_nodes.reserve(size() / 2);
+    
+    // Initialize search
     bfs_queue.emplace_back(start);
-    visited_nodes.emplace(start);
-
+    visited_nodes.insert(start);
+    
     while (!bfs_queue.empty())
     {
-        uint32_t current_node = bfs_queue.front();
+        const uint32_t current_node = bfs_queue.front();
         bfs_queue.pop_front();
-
-        // If we have reached the end node, reconstruct the path
-        if (current_node == end)
+        
+        // Get successors once
+        const auto successor_it = successor_list.find(current_node);
+        
+        // Process each successor
+        for (const uint32_t successor : successor_it->second)
         {
-            std::deque<uint32_t> path;
-            uint32_t node = end;
-            while (node != start)
+            // Check if we've found the end node before processing
+            if (successor == end)
             {
-                path.emplace_front(node);
-                node = parent_map[node];
+                std::deque<uint32_t> path;
+                parent_map[end] = current_node;
+
+                // Reconstruct path
+                uint32_t node = end;
+                while (node != start)
+                {
+                    path.emplace_front(node);
+                    auto it = parent_map.find(node);
+                    node = it->second;
+                }
+                path.emplace_front(start);
+                return path;
             }
-            path.emplace_front(start); // Add the start node at the beginning
-
-            return path;
-        }
-
-        // Explore successors of the current node
-        for (uint32_t successor : successor_list.at(current_node))
-        {
-            if (visited_nodes.find(successor) == visited_nodes.end())
+            // Process unvisited nodes
+            if (visited_nodes.insert(successor).second)
             {
-                visited_nodes.emplace(successor);
-                parent_map[successor] = current_node; // Record the parent of the successor
-                bfs_queue.emplace_back(successor);
+                parent_map[successor] = current_node;
+                bfs_queue.push_back(successor);
             }
         }
     }
-
-    // If the end node is not reachable from the start node, return an empty path
+    
+    // No path found
     return std::deque<uint32_t>();
 }
 
 Graph Graph::collapse_cliques() const
 {
     std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> all_sccs = find_all_strongly_connected_components();
-    
+
     emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> collapsed_node_id;
     collapsed_node_id.reserve(size());
     
-    uint32_t next_scc_node_id = size();
+    uint32_t next_scc_node_id = num_edges() * 4; // inconsistent size and id correlation so I have to do this
     Graph collapsed_graph;
     
     // Process each SCC
@@ -296,26 +304,22 @@ Graph Graph::collapse_cliques() const
         {
             uint32_t node_id = *scc.begin();
             collapsed_node_id[node_id] = node_id;
-            if (!collapsed_graph.has_vertex(node_id))
-            {
-                collapsed_graph.add_vertex(node_id, get_key(node_id));
-            }
+            collapsed_graph.add_vertex(node_id, get_key(node_id));
         }
         else
         {
             bool has_predecessors_outside = false;
             bool has_successors_outside = false;
             
-            // Check for external connections and collect entry nodes
+            // Check for external connections
             for (uint32_t node_id : scc)
             {
                 // Check successors
-                if (const auto successor_it = successor_list.find(node_id); 
-                    successor_it != successor_list.end())
+                if (const auto successor_it = successor_list.find(node_id); successor_it != successor_list.end())
                 {
-                    for (uint32_t succ : successor_it->second)
+                    for (uint32_t successor : successor_it->second)
                     {
-                        if (scc.find(succ) == scc.end())
+                        if (scc.find(successor) == scc.end())
                         {
                             has_successors_outside = true;
                             break;
@@ -323,9 +327,8 @@ Graph Graph::collapse_cliques() const
                     }
                 }
                 
-                // Check predecessors and track entry points
-                if (const auto predecessor_it = predecessor_list.find(node_id);
-                    predecessor_it != predecessor_list.end())
+                // Check predecessors
+                if (const auto predecessor_it = predecessor_list.find(node_id); predecessor_it != predecessor_list.end())
                 {
                     for (uint32_t pred : predecessor_it->second)
                     {
@@ -371,7 +374,6 @@ Graph Graph::collapse_cliques() const
         for (uint32_t successor_id : successors_list)
         {
             uint32_t to_collapsed_id = collapsed_node_id[successor_id];
-
             if (from_collapsed_id != to_collapsed_id)  // Avoid self-loops
             {
                 collapsed_graph.add_edge(from_collapsed_id, to_collapsed_id);
@@ -386,15 +388,17 @@ Graph Graph::collapse_cliques() const
 std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::find_all_strongly_connected_components() const
 {
     // Stack frame for recursion simulator in the stack
-    struct stack_frame {
-    uint32_t node_id;
-    std::vector<uint32_t>::const_iterator successor_it;
-    std::vector<uint32_t>::const_iterator successors_end;
-    bool visited;
-    stack_frame(const uint32_t _node_id, const std::vector<uint32_t>::const_iterator _begin,
-    const std::vector<uint32_t>::const_iterator _end, const bool _visited)
-    : node_id(_node_id), successor_it(_begin), successors_end(_end), visited(_visited) {}
-};
+    struct stack_frame
+    {
+        uint32_t node_id;
+        std::vector<uint32_t>::const_iterator successor_it;
+        std::vector<uint32_t>::const_iterator successors_end;
+        bool visited;
+        stack_frame(const uint32_t _node_id, const std::vector<uint32_t>::const_iterator _begin,
+        const std::vector<uint32_t>::const_iterator _end, const bool _visited)
+        : node_id(_node_id), successor_it(_begin), successors_end(_end), visited(_visited) {}
+    };
+
     // Map each node to its index in the search order
     emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> node_index;
     // Map each node to the lowest index reachable from it (lowlink value)
@@ -600,11 +604,6 @@ uint32_t Graph::get_scc_diameter(uint32_t node_id) const
     }
     // diameter for nodes not in SCCs is just 1
     return 1;
-}
-
-bool Graph::is_scc(uint32_t node_id) const
-{
-    return get_key(node_id)[0] == 'S';
 }
 
 // Iterators using id_to_key to go through the entire graph

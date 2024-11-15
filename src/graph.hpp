@@ -70,8 +70,6 @@ public:
     Graph collapse_cliques() const;
     std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> find_all_strongly_connected_components() const;
 
-    bool is_scc(uint32_t node_id) const;
-
     using node_iterator = emhash8::HashMap<uint32_t, std::string, XXIntHasher>::const_iterator;    // The actual iterators so the entire graph can be traversed
     node_iterator node_begin() const;
     node_iterator node_end() const;
