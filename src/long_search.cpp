@@ -48,13 +48,12 @@ namespace long_search
             // For each successor
             for (const uint32_t successor : graph.successors(current_node))
             {
+                uint32_t successor_diameter = graph.get_scc_diameter(successor);
                 bool should_process = false;
                 if (graph.is_scc(current_node))
                 {
                     should_process = true;
                 }
-
-                uint32_t successor_diameter = graph.get_scc_diameter(successor);
                 // Single node
                 else if (successor_diameter == 1)
                 {
