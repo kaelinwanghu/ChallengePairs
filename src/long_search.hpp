@@ -1,11 +1,11 @@
 #pragma once
 
-#include <queue>
 #include <thread>
 #include <functional>
 #include <climits>
 #include <cmath>
 #include <mutex>
+#include <queue>
 #include "graph.hpp"
 
 namespace long_search
@@ -18,9 +18,8 @@ namespace long_search
 
     inline uint32_t compute_rank(const Graph& graph, uint32_t node_id);
 
-
     // Performs BFS from a starting node and stores the longest chain found
-    uint32_t bfs_search(const Graph& graph, uint32_t start_node, std::pair<uint32_t, uint32_t>& longest_chain);
+    std::pair<uint32_t, uint32_t> bfs_search(const Graph& graph, uint32_t start_node);
 
     // Multithreading DFS search manager to start and manage the bfs on multiple threads
     uint32_t multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes, std::vector<std::pair<uint32_t, uint32_t>>& results);

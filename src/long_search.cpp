@@ -9,98 +9,102 @@ namespace long_search
         return graph.get_scc_diameter(node_id);
     }
 
-    uint32_t bfs_search(const Graph& graph, uint32_t start_node, std::vector<uint32_t>& longest_chain)
+    std::pair<uint32_t, uint32_t> bfs_search(const Graph& graph, uint32_t start_node)
     {
-        const size_t TOP_PATHS = 20; // Number of top paths to evaluate
+        constexpr uint32_t TOP_PATHS = 64;
 
-        // Store sink nodes and their estimated lengths
-        std::vector<std::pair<uint32_t, uint32_t>> sink_nodes_with_estimates;
+        // Stores sink nodes and their estimated total path lengths
+        std::vector<std::pair<uint32_t, uint32_t>> sink_paths; // (sink_node, estimated_length)
+        sink_paths.reserve(50000); // Trust me
 
+        // Tracks where the SCC has been entered
+        emhash8::HashSet<uint32_t, XXIntHasher> scc_entries;
+        scc_entries.reserve(10000);
+
+        // Stores visited nodes
         emhash8::HashSet<uint32_t, XXIntHasher> visited;
+        visited.reserve(graph.size());
 
-        // Priority queue: (negative estimated length for min-heap, current node, current path length)
-        std::priority_queue<std::tuple<int32_t, uint32_t, uint32_t>> bfs_queue;
+        // Priority queue to process nodes with largest estimated total path lengths first
+        // Priority queue stores pairs of (estimated_length, node_id)
+        std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
 
-        // Initialize the BFS with the priority queue
-        uint32_t scc_diameter = graph.get_scc_diameter(start_node);
-        bfs_queue.emplace(-scc_diameter, start_node, 1);
+        // Initialize the priority queue with the start node, always guaranteed to be a single node
+        bfs_queue.emplace_back(1, start_node);
         visited.insert(start_node);
 
         while (!bfs_queue.empty())
         {
-            auto [negative_estimated_length, current_node, current_length] = bfs_queue.top();
-            bfs_queue.pop();
+            const auto [current_estimated_length, current_node] = bfs_queue.back();
+            bfs_queue.pop_back();
 
-            // Check if current_node is a sink node
+            // If current node is a sink node (no successors), potentially long path so store it
             if (graph.out_degree(current_node) == 0)
             {
-                // Store sink node and estimated length
-                sink_nodes_with_estimates.emplace_back(current_node, -negative_estimated_length);
+                sink_paths.emplace_back(current_node, current_estimated_length);
                 continue;
             }
 
-            // Get successors of the current node
-            const auto& successors_set = graph.successors(current_node);
-            std::vector<uint32_t> successors(successors_set.begin(), successors_set.end());
-
-            // Sort successors based on SCC diameter (probably more accurate than size)
-            std::sort(successors.begin(), successors.end(),
-                [&graph](uint32_t a, uint32_t b) {
-                    return graph.get_scc_diameter(a) > graph.get_scc_diameter(b);
-                });
-
-            for (uint32_t successor : successors)
+            // For each successor
+            for (const uint32_t successor : graph.successors(current_node))
             {
-                // Ensure linear runtime by processing it only if it has not already been visited
-                if (visited.find(successor) == visited.end())
+                bool should_process = false;
+                if (graph.is_scc(current_node))
                 {
-                    visited.insert(successor);
+                    should_process = true;
+                }
 
-                    // Estimate the total length
-                    uint32_t successor_scc_diameter = graph.get_scc_diameter(successor);
-                    uint32_t estimated_length = current_length + successor_scc_diameter;
-
-                    // Push onto the priority queue
-                    bfs_queue.emplace(-estimated_length, successor, current_length + 1);
+                uint32_t successor_diameter = graph.get_scc_diameter(successor);
+                // Single node
+                else if (successor_diameter == 1)
+                {
+                    should_process = visited.insert(successor).second;
+                }
+                // SCC node
+                else
+                {
+                    should_process = scc_entries.insert(successor).second;
+                }
+                if (should_process)
+                {
+                    // Emplace the successor into the priority queue
+                    bfs_queue.emplace_back(current_estimated_length + successor_diameter, successor);
                 }
             }
         }
 
-        // Sort sink nodes by estimated length in descending order
-        std::sort(sink_nodes_with_estimates.begin(), sink_nodes_with_estimates.end(),
-            [](const std::pair<uint32_t, uint32_t>& a, const std::pair<uint32_t, uint32_t>& b) {
+        // Keep only the top TOP_PATHS sink nodes with the largest estimated lengths
+        if (sink_paths.size() > TOP_PATHS)
+        {
+            std::partial_sort(sink_paths.begin(),
+                sink_paths.begin() + TOP_PATHS,
+                sink_paths.end(),
+                [](const auto& a, const auto& b)
+                {
+                    return a.second > b.second;
+                });
+            sink_paths.resize(TOP_PATHS);
+        }
+        else
+        {
+            std::sort(sink_paths.begin(), sink_paths.end(),
+            [](const auto& a, const auto& b)
+            {
                 return a.second > b.second;
             });
-
-        // Keep only the top sink node paths
-        if (sink_nodes_with_estimates.size() > TOP_PATHS)
-        {
-            sink_nodes_with_estimates.resize(TOP_PATHS);
         }
 
-        // Then evaluate the actual shortest paths for the top sink nodes
-        uint32_t max_path_length = 0;
-        std::vector<uint32_t> best_path;
-
-    for (const auto& [sink_node, estimated_length] : sink_nodes_with_estimates)
-    {
-        // Compute the shortest path from start_node to sink_node
-        std::deque<uint32_t> path = graph.shortest_path(start_node, sink_node);
-
-        uint32_t path_length = static_cast<uint32_t>(path.size());
-
-        if (path_length > max_path_length)
+        // Evaluate the actual shortest paths for the top sink nodes
+        std::pair<uint32_t, uint32_t> best_result = {0, 0}; // (path_length, sink_node)
+        for (const auto& [sink_node, estimated_length] : sink_paths)
         {
-            max_path_length = path_length;
-
-            // Store the best path
-            best_path.assign(path.begin(), path.end());
+            const std::deque<uint32_t> path = graph.shortest_path(start_node, sink_node);
+            const uint32_t path_length = static_cast<uint32_t>(path.size());
+            if (path_length > best_result.first)
+            {
+                best_result = {path_length, sink_node};
+            }
         }
-    }
-        // Set the longest chain to the best path found
-        longest_chain = best_path;
-
-        // Return the length of the longest path
-        return max_path_length;
+        return best_result;
     }
 }

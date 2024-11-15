@@ -182,38 +182,18 @@ std::string Graph::get_key(const uint32_t node_id) const
 
 
 // Gets the successor set of a certain node
-const emhash8::HashSet<uint32_t, XXIntHasher> Graph::successors(const uint32_t node_id) const
+const std::vector<uint32_t>& Graph::successors(const uint32_t node_id) const
 {
-    // Create a new HashSet and add all the relevant nodes to that successors HashSet
-    emhash8::HashSet<uint32_t, XXIntHasher> successor_set;
+    static const std::vector<uint32_t> empty_vector;  // For when node isn't found
     const auto it = successor_list.find(node_id);
-    if (it != successor_list.end())
-    {
-        for (const uint32_t successor_id : it->second)
-        {
-            successor_set.insert(successor_id);
-        }
-
-    }
-
-    return successor_set;
+    return (it != successor_list.end()) ? it->second : empty_vector;
 }
 
-// Gets the predecessor set of a certain node
-const emhash8::HashSet<uint32_t, XXIntHasher> Graph::predecessors(const uint32_t node_id) const
+const std::vector<uint32_t>& Graph::predecessors(const uint32_t node_id) const
 {
-    // Create a new HashSet and add all the relevant nodes to that successors HashSet
-    emhash8::HashSet<uint32_t, XXIntHasher> predecessor_set;
+    static const std::vector<uint32_t> empty_vector;  // For when node isn't found
     const auto it = predecessor_list.find(node_id);
-    if (it != predecessor_list.end())
-    {
-        for (const uint32_t predecessor_id : it->second)
-        {
-            predecessor_set.insert(predecessor_id);
-        }
-
-    }
-    return predecessor_set;
+    return (it != predecessor_list.end()) ? it->second : empty_vector;
 }
 
 // Returns a string representation of the graph
@@ -256,17 +236,17 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t start, const uint32_t e
     emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> parent_map;
     // Set to keep track of visited nodes
     emhash8::HashSet<uint32_t, XXIntHasher> visited_nodes;
-    // Queue for BFS traversal
-    std::queue<uint32_t> bfs_queue;
+    // Deque for fast BFS traversal
+    std::deque<uint32_t> bfs_queue;
 
     // Initialize BFS
-    bfs_queue.emplace(start);
+    bfs_queue.emplace_back(start);
     visited_nodes.emplace(start);
 
     while (!bfs_queue.empty())
     {
         uint32_t current_node = bfs_queue.front();
-        bfs_queue.pop();
+        bfs_queue.pop_front();
 
         // If we have reached the end node, reconstruct the path
         if (current_node == end)
@@ -284,14 +264,13 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t start, const uint32_t e
         }
 
         // Explore successors of the current node
-        const auto& successors_set = successors(current_node);
-        for (uint32_t successor : successors_set)
+        for (uint32_t successor : successor_list.at(current_node))
         {
             if (visited_nodes.find(successor) == visited_nodes.end())
             {
                 visited_nodes.emplace(successor);
                 parent_map[successor] = current_node; // Record the parent of the successor
-                bfs_queue.emplace(successor);
+                bfs_queue.emplace_back(successor);
             }
         }
     }
@@ -302,29 +281,21 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t start, const uint32_t e
 
 Graph Graph::collapse_cliques() const
 {
-    // Get all SCCs in the graph
     std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> all_sccs = find_all_strongly_connected_components();
-
-    // Map each node to its collapsed node ID
+    
     emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> collapsed_node_id;
-    collapsed_node_id.reserve(size());  // Reserve space for efficiency
-
-    // Counter for new node IDs for collapsed SCCs
-    uint32_t next_scc_node_id = size();  // Start after existing node IDs to avoid conflicts
-
-    // Create a new graph to represent the collapsed SCCs
+    collapsed_node_id.reserve(size());
+    
+    uint32_t next_scc_node_id = size();
     Graph collapsed_graph;
-
+    
     // Process each SCC
     for (const auto& scc : all_sccs)
     {
         if (scc.size() == 1)
         {
-            // For SCCs of size 1, do not collapse
             uint32_t node_id = *scc.begin();
             collapsed_node_id[node_id] = node_id;
-
-            // Add the node to the collapsed graph if not already added
             if (!collapsed_graph.has_vertex(node_id))
             {
                 collapsed_graph.add_vertex(node_id, get_key(node_id));
@@ -332,104 +303,67 @@ Graph Graph::collapse_cliques() const
         }
         else
         {
-            // Determine if SCC has predecessors or successors outside the SCC
             bool has_predecessors_outside = false;
             bool has_successors_outside = false;
-
-            // Check for external predecessors and successors
+            
+            // Check for external connections and collect entry nodes
             for (uint32_t node_id : scc)
             {
-                // Check successors of the node
-                const auto successor_it = successor_list.find(node_id);
-                if (successor_it != successor_list.end())
+                // Check successors
+                if (const auto successor_it = successor_list.find(node_id); 
+                    successor_it != successor_list.end())
                 {
-                    const std::vector<uint32_t>& successors = successor_it->second;
-                    for (uint32_t succ : successors)
+                    for (uint32_t succ : successor_it->second)
                     {
-                        // Check that it is not an internal SCC nodes
                         if (scc.find(succ) == scc.end())
                         {
                             has_successors_outside = true;
-                            break;  // No need to check more successors
+                            break;
                         }
                     }
                 }
-
-                // Check predecessors of the node
-                const auto predecessor_it = predecessor_list.find(node_id);
-                if (predecessor_it != predecessor_list.end())
+                
+                // Check predecessors and track entry points
+                if (const auto predecessor_it = predecessor_list.find(node_id);
+                    predecessor_it != predecessor_list.end())
                 {
-                    const std::vector<uint32_t>& predecessors = predecessor_it->second;
-                    for (uint32_t pred : predecessors)
+                    for (uint32_t pred : predecessor_it->second)
                     {
                         if (scc.find(pred) == scc.end())
                         {
                             has_predecessors_outside = true;
-                            break;  // No need to check more predecessors
+                            break;
                         }
                     }
                 }
-
-                // If both external predecessors and successors are found, we can collapse
                 if (has_predecessors_outside && has_successors_outside)
                 {
-                    break;  // No need to check further nodes in the SCC
+                    break;
                 }
             }
 
             if (!has_predecessors_outside || !has_successors_outside)
             {
-                // Do not collapse the SCC; map nodes to themselves
+                // Do not collapse if it will either become a sink or source node
                 for (uint32_t node_id : scc)
                 {
                     collapsed_node_id[node_id] = node_id;
-                    // Add the node to the collapsed graph
                     collapsed_graph.add_vertex(node_id, get_key(node_id));
                 }
             }
             else
             {
-                // Collapse the SCC into a single node
-                uint32_t scc_node_id = next_scc_node_id++;
+                // Collapse the SCC (entry points already stored above)
                 for (uint32_t node_id : scc)
                 {
-                    collapsed_node_id[node_id] = scc_node_id;
+                    collapsed_node_id[node_id] = next_scc_node_id;
                 }
-                collapsed_graph.add_vertex(scc_node_id, "SCC_" + std::to_string(scc_node_id));
+                collapsed_graph.add_vertex(next_scc_node_id, "SCC_" + std::to_string(next_scc_node_id));
+                next_scc_node_id++;
             }
         }
     }
 
-    // Define a struct for edge pairs to track unique edges
-    struct edge_pair
-    {
-        uint32_t from, to;
-        bool operator==(const edge_pair& other) const
-        {
-            return from == other.from && to == other.to;
-        }
-        // Had to add this for internal hashmap comparisons
-        bool operator<(const edge_pair& other) const
-        {
-            if (from != other.from) return from < other.from;
-            return to < other.to;
-        }
-    };
-    
-    // Hasher for edge pairs
-    struct edge_hasher
-    {
-        size_t operator()(const edge_pair& edge) const
-        {
-            uint64_t data[2] = { edge.from, edge.to };
-            return XXH64(&data, sizeof(data), 0);
-        }
-    };
-    
-    // HashSet to track unique edges
-    emhash8::HashSet<edge_pair, edge_hasher> unique_edges;
-    unique_edges.reserve(num_edges());  // Reserve space for efficiency
-    
     // Add edges to the collapsed graph
     for (const auto& [node_id, successors_list] : successor_list)
     {
@@ -438,17 +372,7 @@ Graph Graph::collapse_cliques() const
         {
             uint32_t to_collapsed_id = collapsed_node_id[successor_id];
 
-            // Avoid adding self-loops
-            if (from_collapsed_id == to_collapsed_id)
-            {
-                continue;
-            }
-
-            // Create an edge pair
-            edge_pair edge{ from_collapsed_id, to_collapsed_id };
-
-            // Add edge only if it's unique
-            if (unique_edges.insert(edge).second)  // If insertion is successful
+            if (from_collapsed_id != to_collapsed_id)  // Avoid self-loops
             {
                 collapsed_graph.add_edge(from_collapsed_id, to_collapsed_id);
             }
@@ -577,52 +501,50 @@ std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::find_all_strongly_co
 
 void Graph::compute_scc_diameters()
 {
-    // Get all SCCs
     std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> all_sccs = find_all_strongly_connected_components();
-
-    node_to_scc_id.clear();
-    scc_id_to_diameter.clear();
-
-    uint32_t scc_id_counter = 0;
-    const uint32_t SMALL_SCC_THRESHOLD = 100; // Threshold for SCC precise diameter measurement
-
-    for (const auto& scc : all_sccs)
-    {
-        uint32_t scc_id = scc_id_counter++;
+    
+    // Pre-allocate maps
+    node_to_scc.clear();
+    node_to_scc.reserve(size());
+    scc_to_diameter.clear();
+    scc_to_diameter.reserve(all_sccs.size());
+    
+    constexpr uint32_t SMALL_SCC_THRESHOLD = 120;
+    constexpr uint32_t NUM_SAMPLES = 10;
+    
+    for (uint32_t scc_id = 0; scc_id < all_sccs.size(); ++scc_id) {
+        const auto& scc = all_sccs[scc_id];
         uint32_t diameter = 0;
-
-        // Map nodes to SCC ID
+        
+        // Map nodes to SCC IDs
         for (uint32_t node_id : scc)
         {
-            node_to_scc_id[node_id] = scc_id;
+            node_to_scc[node_id] = scc_id;
         }
-
-        // Compute diameter
+        
         if (scc.size() <= SMALL_SCC_THRESHOLD)
         {
-            // Exact computation for small SCCs
-            for (uint32_t node_id : scc)
+            // For small components, run BFS from every node for exact diameter
+            for (uint32_t start_node : scc)
             {
-                // BFS from node_id
-                std::queue<std::pair<uint32_t, uint32_t>> bfs_queue;
+                std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
                 emhash8::HashSet<uint32_t, XXIntHasher> visited;
-                bfs_queue.emplace(node_id, 0);
-                visited.insert(node_id);
-
+                visited.reserve(scc.size());  // Pre-allocate visited set
+                
+                bfs_queue.emplace_back(start_node, 0);
+                visited.insert(start_node);
+                
                 while (!bfs_queue.empty())
                 {
                     auto [current_node, distance] = bfs_queue.front();
-                    bfs_queue.pop();
-
+                    bfs_queue.pop_front();
                     diameter = std::max(diameter, distance);
-
-                    const auto& successors = successor_list.at(current_node);
-                    for (uint32_t successor : successors)
+                    // Only look at successors within the same SCC
+                    for (uint32_t successor : successor_list.at(current_node))
                     {
-                        if (scc.find(successor) != scc.end() && visited.find(successor) == visited.end())
+                        if (scc.find(successor) != scc.end() && visited.insert(successor).second)
                         {
-                            visited.insert(successor);
-                            bfs_queue.emplace(successor, distance + 1);
+                            bfs_queue.emplace_back(successor, distance + 1);
                         }
                     }
                 }
@@ -630,60 +552,59 @@ void Graph::compute_scc_diameters()
         }
         else
         {
-            // Approximate computation for large SCCs
-            const size_t NUM_SAMPLES = 5;
-            size_t samples = 0;
-            for (uint32_t node_id : scc)
+            // For large ones, sample nodes for approximate diameter
+            auto current_component = std::vector<uint32_t>(scc.begin(), scc.end());
+            // Select evenly spaced samples for better 
+            size_t step = current_component.size() / NUM_SAMPLES;
+            
+            for (size_t i = 0; i < current_component.size() && i < NUM_SAMPLES * step; i += step)
             {
-                // BFS from node_id
-                std::queue<std::pair<uint32_t, uint32_t>> bfs_queue;
+                uint32_t start_node = current_component[i];
+                std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
                 emhash8::HashSet<uint32_t, XXIntHasher> visited;
-                bfs_queue.emplace(node_id, 0);
-                visited.insert(node_id);
-
+                visited.reserve(scc.size());
+                
+                bfs_queue.emplace_back(start_node, 0);
+                visited.insert(start_node);
+                
                 while (!bfs_queue.empty())
                 {
                     auto [current_node, distance] = bfs_queue.front();
-                    bfs_queue.pop();
-
+                    bfs_queue.pop_front();
                     diameter = std::max(diameter, distance);
-
-                    const auto& successors = successor_list.at(current_node);
-                    for (uint32_t successor : successors)
+                    for (uint32_t successor : successor_list.at(current_node))
                     {
-                        if (scc.find(successor) != scc.end() && visited.find(successor) == visited.end())
+                        if (scc.find(successor) != scc.end() && visited.insert(successor).second)
                         {
-                            visited.insert(successor);
-                            bfs_queue.emplace(successor, distance + 1);
+                            bfs_queue.emplace_back(successor, distance + 1);
                         }
                     }
                 }
-
-                if (++samples >= NUM_SAMPLES)
-                {
-                    break;
-                }
             }
         }
-
-        scc_id_to_diameter[scc_id] = diameter;
+        scc_to_diameter[scc_id] = diameter > 0 ? diameter : 1;
     }
 }
 
 uint32_t Graph::get_scc_diameter(uint32_t node_id) const
 {
-    auto it = node_to_scc_id.find(node_id);
-    if (it != node_to_scc_id.end())
+    auto it = node_to_scc.find(node_id);
+    if (it != node_to_scc.end())
     {
         uint32_t scc_id = it->second;
-        auto diameter_it = scc_id_to_diameter.find(scc_id);
-        if (diameter_it != scc_id_to_diameter.end())
+        auto diameter_it = scc_to_diameter.find(scc_id);
+        if (diameter_it != scc_to_diameter.end())
         {
             return diameter_it->second > 0 ? diameter_it->second : 1;
         }
     }
     // diameter for nodes not in SCCs is just 1
     return 1;
+}
+
+bool Graph::is_scc(uint32_t node_id) const
+{
+    return get_key(node_id)[0] == 'S';
 }
 
 // Iterators using id_to_key to go through the entire graph
