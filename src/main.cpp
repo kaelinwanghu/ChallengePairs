@@ -97,7 +97,7 @@ int main()
 
     auto search_start = std::chrono::high_resolution_clock::now();
 
-    source_nodes.resize(2000);
+    source_nodes.resize(1200);
     std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results = long_search::multithread_search(people_graph, source_nodes);
 
     auto search_end = std::chrono::high_resolution_clock::now();

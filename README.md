@@ -1,4 +1,4 @@
 # ChallengePairs
-For-fun project that gets a graph of alive people with Wikipedian articles and tries to find the longest shortest path (no cycles) among them. 
+For-fun project that gets a graph of alive people with Wikipedian articles and tries to find the longest shortest path (no cycles) among them, although it can be used to generally find the longest shortest path within any graph. 
 Also includes an option for tallying just a lot of longest shortest paths beyond a certain length.
-Rewritten from the Rose-Hulman CSSE230 "GraphSurfing" project from Java into C++ for faster performance and better multithreading. The algorithm avoids brute-force (very impractical) and instead tries to find "popular" nodes to DFS from both forwards and backwards.
+Rewritten from the Rose-Hulman CSSE230 "GraphSurfing" project from Java into C++ for faster performance and better multithreading, the project contains both a regular brute-force BFS search (although evne that is slightly optimized by only starting at source nodes and ending at sink nodes or when there the search gets into a dead end), as well as an enhanced BFS search that uses a clique collapse heuristic to reduce the size of the graph (good for especially dense graphs)

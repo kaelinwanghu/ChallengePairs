@@ -1,0 +1,2 @@
+When processing the graph, reassign the IDs such that they are contiguous, and making a vector useable
+Clean up the multithreading

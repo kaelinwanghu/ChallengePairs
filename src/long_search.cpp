@@ -52,6 +52,7 @@ namespace long_search
         // Keep only the top TOP_PATHS sink nodes with the largest estimated lengths
         if (sink_paths.size() > TOP_PATHS)
         {
+            // Partition of the longest TOP_PATHs
             std::nth_element(sink_paths.begin(),
                 sink_paths.begin() + TOP_PATHS - 1,
                 sink_paths.end(),
@@ -75,6 +76,7 @@ namespace long_search
         return best_result;
     }
 
+    // Standard BFS search
     std::pair<uint32_t, uint32_t> bfs_search(const Graph& graph, const uint32_t start_node)
     {
         // Stores visited nodes
@@ -82,10 +84,10 @@ namespace long_search
         visited.reserve(graph.size());
 
         // deque stores pairs of (path_length, node_id)
-        std::queue<std::pair<uint32_t, uint32_t>> bfs_queue;
+        std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
 
         // Initialize the BFS queue with the start node
-        bfs_queue.emplace(start_node, 1);
+        bfs_queue.emplace_back(start_node, 1);
         visited.insert(start_node);
 
         std::pair<uint32_t, uint32_t> best_path = {0, 0};
@@ -94,7 +96,7 @@ namespace long_search
         while (!bfs_queue.empty())
         {
             const auto [current_node, current_path_length] = bfs_queue.front();
-            bfs_queue.pop();
+            bfs_queue.pop_front();
 
             const auto& successors = graph.successors(current_node);
 
@@ -113,7 +115,7 @@ namespace long_search
             {
                 if (visited.insert(successor).second)
                 {
-                    bfs_queue.emplace(successor, current_path_length + 1);
+                    bfs_queue.emplace_back(successor, current_path_length + 1);
                 }
             }
 
@@ -128,11 +130,10 @@ namespace long_search
 
     std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes)
     {
-
         std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
 
         // Determine the number of threads to use
-        const unsigned int num_threads = std::thread::hardware_concurrency();
+        const uint32_t num_threads = std::thread::hardware_concurrency();
 
         // Atomic counter for dynamic scheduling
         std::atomic<size_t> index_counter(0);
@@ -143,7 +144,7 @@ namespace long_search
 
         std::vector<std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>> thread_results(num_threads);
 
-        auto thread_search = [&](const unsigned int thread_id)
+        auto thread_search = [&](const uint32_t thread_id)
         {
             // Local results vector to to merge at the end
             auto& local_results = thread_results[thread_id];
@@ -177,7 +178,7 @@ namespace long_search
         results.reserve(total_result_size);
         for (const auto& local_results : thread_results)
         {
-            results.insert(results.end(), local_results.begin(), local_results.end());
+            results.insert(results.end(), std::make_move_iterator(local_results.begin()), std::make_move_iterator(local_results.end()));
         }
 
         // Sort the results in descending order based on path length

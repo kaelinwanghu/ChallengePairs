@@ -17,5 +17,4 @@ namespace long_search
 
     // Multithreading DFS search manager to start and manage the bfs on multiple threads
     std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes);
-
 }
