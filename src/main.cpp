@@ -10,99 +10,123 @@
 #include "long_search.hpp"
 
 // Fast C++ style I/O
-void fast()
+void fast_io()
 {
     std::ios_base::sync_with_stdio(false);
     std::cin.tie(nullptr);
     std::cout.tie(nullptr);
 }
 
-// Function to read and add vertices from the names file
-void read_names(Graph& graph, const std::string& filename)
+// Function to read and add vertices from the vertices file
+uint32_t read_vertices(Graph& graph, const std::string& filename)
 {
-    std::ifstream namesFile(filename);
-    if (!namesFile) {
-        std::cerr << "Failed to open names file" << "\n";
-        return;
+    uint32_t failed_count = 0;
+    std::ifstream vertices_file(filename);
+    if (!vertices_file)
+    {
+        std::cerr << "Failed to open vertices file" << "\n";
+        return std::numeric_limits<uint32_t>::max();
     }   
 
     std::string line;
-    while (std::getline(namesFile, line))
+    // Normalize IDs for faster access and retrieval
+    uint32_t normalized_id = 1; // 0 is reserved for function failure
+    while (std::getline(vertices_file, line))
     {
         const char* p = line.c_str();
         char* endptr;
         uint32_t node_id = strtoul(p, &endptr, 10);
         ++endptr;
         std::string name = endptr;
-        graph.add_vertex(node_id, name);
+
+        if (graph.add_vertex(node_id, name))
+        {
+            normalized_id++;
+        }
+        else
+        {
+            failed_count++;
+        }
     }
+
+    return failed_count;
 }
 
-// Read and add edges from the links file
-void read_links(Graph& graph, const std::string& filename)
+// Read and add edges from the edges file
+uint32_t read_edges(Graph& graph, const std::string& filename, const emhash8::HashMap<uint32_t, uint32_t, XXIntHasher>& id_normalizer)
 {
-    std::ifstream linksFile(filename);
-    if (!linksFile) {
-        std::cerr << "Failed to open links file" << "\n";
-        return;
+    uint32_t failed_count = 0;
+    std::ifstream edges_file(filename);
+    if (!edges_file)
+    {
+        std::cerr << "Failed to open edges file" << "\n";
+        return std::numeric_limits<uint32_t>::max();
     }
 
     std::string line;
-    while (std::getline(linksFile, line))
+    while (std::getline(edges_file, line))
     {
         const char* p = line.c_str();
         char* endptr;
-        uint32_t from_id = strtoul(p, &endptr, 10);
+        auto from_it = id_normalizer.find(strtoul(p, &endptr, 10));
         ++endptr;
-        uint32_t to_id = strtoul(endptr, nullptr, 10);
-        graph.add_edge(from_id, to_id);
+        auto to_it = id_normalizer.find(strtoul(endptr, nullptr, 10));
+        if (from_it != id_normalizer.end() && to_it != id_normalizer.end())
+        {
+            if (!graph.add_edge(from_it->second, to_it->second))
+            {
+                failed_count++;
+            }
+        }
+        else
+        {
+            failed_count++;
+        }
     }
+
+    return failed_count;
 }
+
 
 int main()
 {
-    fast();
-
+    fast_io();
     // Track the time
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start_name = std::chrono::high_resolution_clock::now();
 
     Graph people_graph;
 
-    read_names(people_graph, "../data/wiki-livingpeople-names.txt");
+    emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> id_normalizer;
+
+    uint32_t failed_vertices = read_vertices(people_graph, "../data/wiki-livingpeople-names.txt");
 
     auto end_name = std::chrono::high_resolution_clock::now();
 
-    read_links(people_graph, "../data/wiki-livingpeople-links.txt");
+    uint32_t failed_edges = read_edges(people_graph, "../data/wiki-livingpeople-links.txt", id_normalizer);
 
     auto end_link = std::chrono::high_resolution_clock::now();
 
-    std::cout << "Read names in " << ((std::chrono::duration_cast<std::chrono::milliseconds>(end_name - start)).count()) << " milliseconds\n";
-    std::cout << "Read " << people_graph.size() << " vertices with " << people_graph.num_edges() << " edges" << " in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_link - start).count()) << " milliseconds\n";
-
-    Graph collapsed_people_graph = people_graph.collapse_cliques();
-
-    auto end_collapse = std::chrono::high_resolution_clock::now();
-
-    std::cout << "clique collapsed in: " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_collapse - start).count()) << " milliseconds\n";
+    std::cout << "Read " << people_graph.size() << " and failed to read " << failed_vertices << " vertices in " << ((std::chrono::duration_cast<std::chrono::milliseconds>(end_name - start_name)).count()) << " milliseconds\n";
+    std::cout << "Read " << people_graph.num_edges() << " and failed to read " << failed_edges << " edges in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_link - end_name).count()) << " milliseconds\n";
 
     std::vector<uint32_t> source_nodes;
-    source_nodes.reserve(75000); // Trust me (again)
-    for (auto it = collapsed_people_graph.node_begin(); it != collapsed_people_graph.node_end(); ++it)
+    source_nodes.reserve(people_graph.size() / 4); // Really rough approximation (still probably better than default size)
+    for (auto it = people_graph.node_begin(); it != people_graph.node_end(); ++it)
     {
-        if (collapsed_people_graph.predecessors(it->first).size() == 0)
+        if (people_graph.predecessors(it->second).size() == 0)
         {
-            source_nodes.emplace_back(it->first);
+            source_nodes.emplace_back(it->second);
         }
     }
 
     auto search_start = std::chrono::high_resolution_clock::now();
 
-    source_nodes.resize(1200);
+    source_nodes.resize(120);
     std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results = long_search::multithread_search(people_graph, source_nodes);
 
     auto search_end = std::chrono::high_resolution_clock::now();
 
-    std::cout << "BFS searches completed in: " 
+    std::cout << "BFS searches of " << source_nodes.size() << " nodes completed in: " 
         << (std::chrono::duration_cast<std::chrono::milliseconds>(search_end - search_start)).count() 
         << " milliseconds\n";
 
@@ -113,5 +137,6 @@ int main()
             << " | Sink node: " << people_graph.get_key(std::get<1>(best_chain))
             << " | Length: " << std::get<2>(best_chain) << "\n";
     }
+
     return 0;
 }

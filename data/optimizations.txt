@@ -1,2 +1,10 @@
+Aggressive compilation optimization flags
+Blazingly fast HashMap/Set (discovered through time trials) that are excellent regarding insertion and find
+Graph class manipulation really only concerns the node_ids to conserve space and speed up the process
+Search starts at source and ends at sink nodes
+Did multithreading in the first place for the searches (good approach since it is not modifying the graph in any way)
+For the multithreading, instead of using static batches, get them as the searches finish up for a thread
+Stores the results of the thread's work into a local vector and merges them all at the end
+Used moved semantics for the merge at the end
 When processing the graph, reassign the IDs such that they are contiguous, and making a vector useable
 Clean up the multithreading
