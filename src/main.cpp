@@ -53,7 +53,7 @@ uint32_t read_vertices(Graph& graph, const std::string& filename)
 }
 
 // Read and add edges from the edges file
-uint32_t read_edges(Graph& graph, const std::string& filename, const emhash8::HashMap<uint32_t, uint32_t, XXIntHasher>& id_normalizer)
+uint32_t read_edges(Graph& graph, const std::string& filename)
 {
     uint32_t failed_count = 0;
     std::ifstream edges_file(filename);
@@ -68,17 +68,10 @@ uint32_t read_edges(Graph& graph, const std::string& filename, const emhash8::Ha
     {
         const char* p = line.c_str();
         char* endptr;
-        auto from_it = id_normalizer.find(strtoul(p, &endptr, 10));
+        auto from_id = strtoul(p, &endptr, 10);
         ++endptr;
-        auto to_it = id_normalizer.find(strtoul(endptr, nullptr, 10));
-        if (from_it != id_normalizer.end() && to_it != id_normalizer.end())
-        {
-            if (!graph.add_edge(from_it->second, to_it->second))
-            {
-                failed_count++;
-            }
-        }
-        else
+        auto to_id = strtoul(endptr, nullptr, 10);
+        if (!graph.add_edge(from_id, to_id))
         {
             failed_count++;
         }
@@ -102,7 +95,7 @@ int main()
 
     auto end_name = std::chrono::high_resolution_clock::now();
 
-    uint32_t failed_edges = read_edges(people_graph, "../data/wiki-livingpeople-links.txt", id_normalizer);
+    uint32_t failed_edges = read_edges(people_graph, "../data/wiki-livingpeople-links.txt");
 
     auto end_link = std::chrono::high_resolution_clock::now();
 
@@ -121,7 +114,7 @@ int main()
 
     auto search_start = std::chrono::high_resolution_clock::now();
 
-    source_nodes.resize(120);
+    source_nodes.resize(1200);
     std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results = long_search::multithread_search(people_graph, source_nodes);
 
     auto search_end = std::chrono::high_resolution_clock::now();
@@ -133,8 +126,8 @@ int main()
     if (!results.empty())
     {
         const auto& best_chain = results.front();
-        std::cout << "Source node: " << people_graph.get_key(std::get<0>(best_chain))
-            << " | Sink node: " << people_graph.get_key(std::get<1>(best_chain))
+        std::cout << "Source node: " << people_graph.get_key(std::get<0>(best_chain), true)
+            << " | Sink node: " << people_graph.get_key(std::get<1>(best_chain), true)
             << " | Length: " << std::get<2>(best_chain) << "\n";
     }
 

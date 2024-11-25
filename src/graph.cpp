@@ -14,7 +14,6 @@ Graph::Graph() : edge_count(0), current_normalized_id(1)
     predecessor_list.emplace_back(std::vector<uint32_t>());
     id_to_key.emplace_back(std::string());
     node_to_scc.emplace_back(0);
-
     scc_to_diameter.emplace(0, 0);
 }
 
@@ -49,12 +48,12 @@ bool Graph::add_vertex(const uint32_t node_id, const std::string& key)
 {
     uint32_t normalized_id = set_normalized_id(node_id);
     // Check that the node doesn't exist yet before adding vertex
-    if (has_vertex(normalized_id))
+    if (has_vertex(normalized_id, true))
     {
         return false;
     }
 
-    key_to_id[key] = node_id;
+    key_to_id.emplace(key, normalized_id);
     id_to_key.emplace_back(key);
 
     // Initialize vector successors and predecessors as well
@@ -65,16 +64,16 @@ bool Graph::add_vertex(const uint32_t node_id, const std::string& key)
 }
 
 // Adds an edge from a node to another if they do not exist already
-bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false)
+bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/)
 {
     uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
     uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
-    if (!has_vertex(normalized_from_id) || !has_vertex(normalized_to_id))
+    if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
     {
         return false;
     }
 
-    auto& successors = successor_list[normalized_from_id];
+    std::vector<uint32_t>& successors = successor_list[normalized_from_id];
     if (std::find(successors.begin(), successors.end(), normalized_to_id) != successors.end())
     {
         return false;
@@ -90,38 +89,38 @@ bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id, bool is_norma
 }
 
 // Checks whether the graph has a particular vertex with the node Id
-bool Graph::has_vertex(const uint32_t node_id, bool is_normalized = false) const
+bool Graph::has_vertex(const uint32_t node_id, bool is_normalized /*= false*/) const
 {
     uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return normalized_id > 0 && normalized_id < id_to_key.size();
 }
 
 // Checks whether the graph has a particular edge with the node Id
-bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const
+bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/ ) const
 {
     uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
     uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
-    if (!has_vertex(normalized_from_id) || !has_vertex(normalized_to_id))
+    if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
     {
         return false;
     }
 
-    const auto& successors = successor_list[normalized_from_id];
+    const std::vector<uint32_t>& successors = successor_list[normalized_from_id];
     return std::find(successors.begin(), successors.end(), normalized_to_id) != successors.end();
 }
 
 // Removes an edge from the graph if it exists
-bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false)
+bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/)
 {
     uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
     uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
-    if (!has_vertex(normalized_from_id) || !has_vertex(normalized_to_id))
+    if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
     {
         return false;
     }
 
     // Remove for both successors...
-    auto& successors = successor_list[normalized_from_id];
+    std::vector<uint32_t>& successors = successor_list[normalized_from_id];
     const auto successor_find = std::find(successors.begin(), successors.end(), normalized_to_id);
     if (successor_find != successors.end())
     {
@@ -133,11 +132,17 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_no
     }
 
     // And predecessors
-    auto& predecessors = predecessor_list[normalized_to_id];
+    std::vector<uint32_t>& predecessors = predecessor_list[normalized_to_id];
     const auto predecessor_find = std::find(predecessors.begin(), predecessors.end(), normalized_from_id);
     if (predecessor_find != predecessors.end())
     {
         predecessors.erase(predecessor_find);
+    }
+    else
+    {
+        // If failed, add the normalized_to_id back
+        successors.emplace_back(normalized_to_id);
+        return false;
     }
 
     --edge_count;
@@ -146,7 +151,7 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_no
 }
 
 // Calculates the out_degree of a node (how many edges originate from it)
-uint32_t Graph::out_degree(const uint32_t node_id, bool is_normalized = false) const
+uint32_t Graph::out_degree(const uint32_t node_id, bool is_normalized /*= false*/) const
 {
     uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return successor_list[normalized_id].size();
@@ -154,7 +159,7 @@ uint32_t Graph::out_degree(const uint32_t node_id, bool is_normalized = false) c
 
 
 // Calculates the in_degree of a node (how many edges end at it)
-uint32_t Graph::in_degree(const uint32_t node_id, bool is_normalized = false) const
+uint32_t Graph::in_degree(const uint32_t node_id, bool is_normalized /*= false*/) const
 {
     uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return predecessor_list[normalized_id].size();
@@ -176,20 +181,20 @@ uint32_t Graph::get_node_id(const std::string& key) const
 }
 
 // Gets the key (person name) based on the specified node_id, opposite of function above
-std::string Graph::get_key(const uint32_t node_id, bool is_normalized = false) const
+std::string Graph::get_key(const uint32_t node_id, bool is_normalized /*= false*/) const
 {
     uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return id_to_key[normalized_id];
 }
 
 // Gets the successor set of a certain node
-const std::vector<uint32_t>& Graph::successors(const uint32_t node_id, bool is_normalized = false) const
+const std::vector<uint32_t>& Graph::successors(const uint32_t node_id, bool is_normalized /*= false*/) const
 {
     uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return successor_list[normalized_id];
 }
 
-const std::vector<uint32_t>& Graph::predecessors(const uint32_t node_id, bool is_normalized = false) const
+const std::vector<uint32_t>& Graph::predecessors(const uint32_t node_id, bool is_normalized /*= false*/) const
 {
     uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return predecessor_list[normalized_id];
@@ -199,7 +204,8 @@ const std::vector<uint32_t>& Graph::predecessors(const uint32_t node_id, bool is
 std::string Graph::graph_string() const
 {
     std::string result;
-    result.reserve((num_edges() + size()) * 8);
+    // *8 for the characters, and + *2 because of the extra values
+    result.reserve((num_edges() + size()) * 10);
 
     uint32_t graph_size = size();
     for (size_t i = 1; i < graph_size; ++i)
@@ -223,12 +229,12 @@ std::string Graph::graph_string() const
     return result;
 }
 
-std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const
+std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/) const
 {
     uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
     uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
     // Early validation
-    if (!has_vertex(normalized_from_id) || !has_vertex(normalized_to_id))
+    if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
     {
         return std::deque<uint32_t>();
     }
@@ -596,7 +602,7 @@ void Graph::compute_scc_diameters()
     }
 }
 
-uint32_t Graph::get_scc_diameter(uint32_t node_id, bool is_normalized = false) const
+uint32_t Graph::get_scc_diameter(uint32_t node_id, bool is_normalized /*= false*/) const
 {
     uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     auto scc_id = node_to_scc[normalized_id];

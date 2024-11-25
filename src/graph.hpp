@@ -17,6 +17,7 @@
 #include <string>
 #include <stack>
 #include <deque>
+#include <limits>
 
 // Note that the graph edges are around 3 million, so a uint32_t should suffice
 

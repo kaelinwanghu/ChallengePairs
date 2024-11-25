@@ -88,7 +88,7 @@ namespace long_search
 
         // Initialize the BFS queue with the start node
         bfs_queue.emplace_back(start_node, 1);
-        visited.insert(start_node);
+        visited.emplace(start_node);
 
         std::pair<uint32_t, uint32_t> best_path = {0, 0};
 
@@ -98,7 +98,7 @@ namespace long_search
             const auto [current_node, current_path_length] = bfs_queue.front();
             bfs_queue.pop_front();
 
-            const auto& successors = graph.successors(current_node);
+            const std::vector<uint32_t>& successors = graph.successors(current_node, true);
 
             // If current node is a sink node (no successors), store its path length
             if (successors.empty())
@@ -127,13 +127,15 @@ namespace long_search
 
         return best_path;
     }
-
+    
     std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes)
     {
         std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
 
         // Determine the number of threads to use
         const uint32_t num_threads = std::thread::hardware_concurrency();
+        size_t start_nodes_size = start_nodes.size();
+        constexpr size_t batch_size = 32;
 
         // Atomic counter for dynamic scheduling
         std::atomic<size_t> index_counter(0);
@@ -147,36 +149,36 @@ namespace long_search
         auto thread_search = [&](const uint32_t thread_id)
         {
             // Local results vector to to merge at the end
-            auto& local_results = thread_results[thread_id];
-            local_results.reserve(start_nodes.size() / (num_threads * 3 / 2));
+            std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>& local_results = thread_results[thread_id];
+            local_results.reserve(start_nodes.size() / num_threads);
 
             size_t i;
-            while ((i = index_counter.fetch_add(1, std::memory_order_relaxed)) < start_nodes.size())
+            while ((i = index_counter.fetch_add(batch_size, std::memory_order_relaxed)) < start_nodes_size)
             {
-                const uint32_t start_node = start_nodes[i];
-                const std::pair<uint32_t, uint32_t> result = bfs_search(graph, start_node);
-                local_results.emplace_back(start_node, result.first, result.second);
+                const size_t actual_end = std::min(i + batch_size, start_nodes_size);
+                for (; i < actual_end; ++i)
+                {
+                    const uint32_t start_node = start_nodes[i];
+                    const std::pair<uint32_t, uint32_t> result = bfs_search(graph, start_node);
+                    local_results.emplace_back(start_node, result.first, result.second);
+                }
             }
         };
 
         // Launch threads and then do a wait
-        for (unsigned int t = 0; t < num_threads; ++t)
+        for (uint32_t t = 0; t < num_threads; ++t)
         {
             threads.emplace_back(thread_search, t);
         }
-        for (auto& thread : threads)
+        for (std::thread& thread : threads)
         {
             thread.join();
         }
 
-        // Do the merge
-        size_t total_result_size = 0;
-        for (const auto& local_results : thread_results)
-        {
-            total_result_size += local_results.size();
-        }
-        results.reserve(total_result_size);
-        for (const auto& local_results : thread_results)
+        results.reserve(start_nodes_size);
+
+        // Move iterator to be extra efficient
+        for (const std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>& local_results : thread_results)
         {
             results.insert(results.end(), std::make_move_iterator(local_results.begin()), std::make_move_iterator(local_results.end()));
         }
