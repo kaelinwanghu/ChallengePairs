@@ -7,13 +7,15 @@
 #include <iostream>
 
 // The containers all handle it so no need to do much for graph constructor and destructor
-Graph::Graph() : edge_count(0)
+Graph::Graph() : edge_count(0), current_normalized_id(1)
 {
-    successor_list[0] = std::vector<uint32_t>();
-    predecessor_list[0] = std::vector<uint32_t>();
-    id_to_key[0] = std::string();
-    node_to_scc[0] = 0;
-    scc_to_diameter[0] = 0;
+    // Dummy values for the "failed index" 0
+    successor_list.emplace_back(std::vector<uint32_t>());
+    predecessor_list.emplace_back(std::vector<uint32_t>());
+    id_to_key.emplace_back(std::string());
+    node_to_scc.emplace_back(0);
+
+    scc_to_diameter.emplace(0, 0);
 }
 
 Graph::~Graph()
@@ -31,7 +33,7 @@ void Graph::initialize_graph(uint32_t num_vertices)
 // Gets the size of the graph in terms of vertices
 uint32_t Graph::size() const
 {
-    return key_to_id.size();
+    return id_to_key.size() - 1;
 }
 
 
@@ -90,7 +92,8 @@ bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id, bool is_norma
 // Checks whether the graph has a particular vertex with the node Id
 bool Graph::has_vertex(const uint32_t node_id, bool is_normalized = false) const
 {
-    return id_to_key.size() > (is_normalized ? node_id : get_normalized_id(node_id));
+    uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+    return normalized_id > 0 && normalized_id < id_to_key.size();
 }
 
 // Checks whether the graph has a particular edge with the node Id
@@ -104,7 +107,7 @@ bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id, bool is_norma
     }
 
     const auto& successors = successor_list[normalized_from_id];
-    return std::find(successors.begin(), successors.end(), to_id) != successors.end();
+    return std::find(successors.begin(), successors.end(), normalized_to_id) != successors.end();
 }
 
 // Removes an edge from the graph if it exists
@@ -198,12 +201,13 @@ std::string Graph::graph_string() const
     std::string result;
     result.reserve((num_edges() + size()) * 8);
 
-    for (const auto [node_id, normalized_id] : id_normalizer)
+    uint32_t graph_size = size();
+    for (size_t i = 1; i < graph_size; ++i)
     {
-        const std::string& node_name = get_key(node_id);
+        const std::string& node_name = get_key(i, true);
         result += node_name + ": ";
 
-        const std::vector<uint32_t>& successor_ids = successors(normalized_id, true);
+        const std::vector<uint32_t>& successor_ids = successors(i, true);
 
         // Formatting separator doesn't activate until after first element
         std::string separator = "";
@@ -316,7 +320,7 @@ Graph Graph::collapse_cliques() const
             for (uint32_t node_id : scc)
             {
                 // Check successors
-                if (std::vector<uint32_t> successor_vector = successor_list[node_id]; successor_vector.size() > 0)
+                if (const std::vector<uint32_t>& successor_vector = successor_list[node_id]; !successor_vector.empty())
                 {
                     for (uint32_t successor : successor_vector)
                     {
@@ -329,7 +333,7 @@ Graph Graph::collapse_cliques() const
                 }
                 
                 // Check predecessors
-                if (std::vector<uint32_t> predecessor_vector = predecessor_list[node_id]; predecessor_vector.size() > 0)
+                if (const std::vector<uint32_t>& predecessor_vector = predecessor_list[node_id]; !predecessor_vector.empty())
                 {
                     for (uint32_t predecessor : predecessor_vector)
                     {
@@ -368,16 +372,17 @@ Graph Graph::collapse_cliques() const
         }
     }
 
+    uint32_t successor_list_size = successor_list.size();
     // Add edges to the collapsed graph
-    for (const std::vector<uint32_t>& successor_vector : successor_list)
+    for (size_t from_id = 1; from_id < successor_list_size; ++from_id)
     {
-        size_t successor_vector_size = successor_vector.size();
-        for (size_t i = 0; i < successor_vector_size; ++i)
+        for (uint32_t to_id : successor_list[from_id])
         {
-            uint32_t to_collapsed_id = collapsed_node_id[successor_vector[i]];
-            if (i != to_collapsed_id)  // Avoid self-loops
+            uint32_t from_collapsed_id = collapsed_node_id[from_id];
+            uint32_t to_collapsed_id = collapsed_node_id[to_id];
+            if (from_collapsed_id != to_collapsed_id)
             {
-                collapsed_graph.add_edge(i, to_collapsed_id, true);
+                collapsed_graph.add_edge(from_collapsed_id, to_collapsed_id, true);
             }
         }
     }
@@ -421,7 +426,7 @@ std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::find_all_strongly_co
     strongly_connected_components.reserve(size() / 2);  // Around half the nodes are SCCs
     
     // Iterate over all nodes in the graph
-    for (size_t it = 0; it != graph_size; ++it)
+    for (size_t it = 1; it != graph_size; ++it)
     {
         if (visited_nodes.find(static_cast<uint32_t>(it)) == visited_nodes.end())
         {
@@ -510,7 +515,7 @@ void Graph::compute_scc_diameters()
     
     // Pre-allocate maps
     node_to_scc.clear();
-    node_to_scc.reserve(size());
+    node_to_scc.resize(size());
     scc_to_diameter.clear();
     scc_to_diameter.reserve(all_sccs.size());
     
@@ -594,13 +599,13 @@ void Graph::compute_scc_diameters()
 uint32_t Graph::get_scc_diameter(uint32_t node_id, bool is_normalized = false) const
 {
     uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
-    auto it = node_to_scc[normalized_id];
-    if (it != 0)
+    auto scc_id = node_to_scc[normalized_id];
+    if (scc_id != 0)
     {
-        auto diameter_it = scc_to_diameter.find(it);
-        if (diameter_it != scc_to_diameter.end())
+        auto diameter_scc_id = scc_to_diameter.find(scc_id);
+        if (diameter_scc_id != scc_to_diameter.end())
         {
-            return diameter_it->second > 0 ? diameter_it->second : 1;
+            return diameter_scc_id->second;
         }
     }
     // diameter for nodes not in SCCs is just 1
@@ -610,30 +615,28 @@ uint32_t Graph::get_scc_diameter(uint32_t node_id, bool is_normalized = false) c
 uint32_t Graph::get_normalized_id(uint32_t node_id) const
 {
     auto it = id_normalizer.find(node_id);
-    if (it != id_normalizer.end())
-    {
-        return it->second;
-    }
-    else
-    {
-        return 0;
-    }
+    return it != id_normalizer.end() ? it->second : 0;
 }
 
 uint32_t Graph::set_normalized_id(uint32_t node_id)
 {
+    if (current_normalized_id == std::numeric_limits<uint32_t>::max())
+    {
+        throw std::runtime_error("Normalized ID overflow");
+    }
+
     id_normalizer[node_id] = current_normalized_id;
     return current_normalized_id++;
 }
 
-// Iterators using id_to_key to go through the entire graph
+// Iterators using id_to_key to go through the entire graph (order not guaranteed)
 
 Graph::node_iterator Graph::node_begin() const
 {
-    return id_to_key.cbegin();
+    return key_to_id.cbegin();
 }
 
 Graph::node_iterator Graph::node_end() const
 {
-    return id_to_key.cend();
+    return key_to_id.cend();
 }

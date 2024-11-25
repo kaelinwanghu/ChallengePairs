@@ -100,6 +100,6 @@ private:
 
     uint32_t edge_count;
 
-    uint32_t current_normalized_id = 1;
+    uint32_t current_normalized_id;
     emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> id_normalizer;
 };
