@@ -14,7 +14,7 @@ namespace long_search
         sink_paths.reserve(50000); // Trust me
 
         // Stores visited nodes
-        emhash8::HashSet<uint32_t, XXIntHasher> visited;
+        emhash8::HashSet<uint32_t> visited;
         visited.reserve(graph.size());
 
         // deque stores pairs of (estimated_length, node_id)
@@ -80,7 +80,7 @@ namespace long_search
     std::pair<uint32_t, uint32_t> bfs_search(const Graph& graph, const uint32_t start_node)
     {
         // Stores visited nodes
-        emhash8::HashSet<uint32_t, XXIntHasher> visited;
+        emhash8::HashSet<uint32_t> visited;
         visited.reserve(graph.size());
 
         // deque stores pairs of (path_length, node_id)

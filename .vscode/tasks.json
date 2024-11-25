@@ -17,7 +17,6 @@
                 "${workspaceFolder}\\src\\main.cpp",
                 "${workspaceFolder}\\src\\graph.cpp",
                 "${workspaceFolder}\\src\\long_search.cpp",
-                "${workspaceFolder}\\src\\xxhash.c",
                 "-o",
                 "${workspaceFolder}\\build\\ChallengePairs.exe"
             ],

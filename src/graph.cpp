@@ -246,8 +246,8 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t
     }
 
     // Pre-allocate with reasonable sizes
-    emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> parent_map;
-    emhash8::HashSet<uint32_t, XXIntHasher> visited_nodes;
+    emhash8::HashMap<uint32_t, uint32_t> parent_map;
+    emhash8::HashSet<uint32_t> visited_nodes;
     std::deque<uint32_t> bfs_queue;
     
     parent_map.reserve(size() / 4);
@@ -300,9 +300,9 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t
 
 Graph Graph::collapse_cliques() const
 {
-    std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> all_sccs = find_all_strongly_connected_components();
+    std::vector<emhash8::HashSet<uint32_t>> all_sccs = find_all_strongly_connected_components();
 
-    emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> collapsed_node_id;
+    emhash8::HashMap<uint32_t, uint32_t> collapsed_node_id;
     collapsed_node_id.reserve(size());
     
     uint32_t next_scc_node_id = size() + 1;
@@ -397,7 +397,7 @@ Graph Graph::collapse_cliques() const
 }
 
 
-std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::find_all_strongly_connected_components() const
+std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_components() const
 {
     // Stack frame for recursion simulator in the stack
     struct stack_frame
@@ -412,19 +412,19 @@ std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::find_all_strongly_co
     };
 
     // Map each node to its index in the search order
-    emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> node_index;
+    emhash8::HashMap<uint32_t, uint32_t> node_index;
     // Map each node to the lowest index reachable from it (lowlink value)
-    emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> node_lowlink;
+    emhash8::HashMap<uint32_t, uint32_t> node_lowlink;
     // Set of nodes that have been visited
-    emhash8::HashSet<uint32_t, XXIntHasher> visited_nodes;
+    emhash8::HashSet<uint32_t> visited_nodes;
     // Stack to store the data of current nodes
     std::stack<uint32_t> data_stack;
     // Set to quickly check if a node is on the DFS stack
-    emhash8::HashSet<uint32_t, XXIntHasher> on_stack;
+    emhash8::HashSet<uint32_t> on_stack;
     // Current index used in ordering DFS traversal
     uint32_t current_index = 0;
     // Vector to store all Strongly Connected Components found
-    std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> strongly_connected_components;
+    std::vector<emhash8::HashSet<uint32_t>> strongly_connected_components;
     size_t graph_size = size();
     node_index.reserve(size());
     node_lowlink.reserve(size());
@@ -488,7 +488,7 @@ std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::find_all_strongly_co
                 if (node_lowlink[current_node] == node_index[current_node])
                 {
                     // Start popping off the data stack
-                    emhash8::HashSet<uint32_t, XXIntHasher> current_component;
+                    emhash8::HashSet<uint32_t> current_component;
                     uint32_t top_node;
                     do
                     {
@@ -517,7 +517,7 @@ std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> Graph::find_all_strongly_co
 
 void Graph::compute_scc_diameters()
 {
-    std::vector<emhash8::HashSet<uint32_t, XXIntHasher>> all_sccs = find_all_strongly_connected_components();
+    std::vector<emhash8::HashSet<uint32_t>> all_sccs = find_all_strongly_connected_components();
     
     // Pre-allocate maps
     node_to_scc.clear();
@@ -544,7 +544,7 @@ void Graph::compute_scc_diameters()
             for (uint32_t start_node : scc)
             {
                 std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
-                emhash8::HashSet<uint32_t, XXIntHasher> visited;
+                emhash8::HashSet<uint32_t> visited;
                 visited.reserve(scc.size());  // Pre-allocate visited set
                 
                 bfs_queue.emplace_back(start_node, 0);
@@ -577,7 +577,7 @@ void Graph::compute_scc_diameters()
             {
                 uint32_t start_node = current_component[i];
                 std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
-                emhash8::HashSet<uint32_t, XXIntHasher> visited;
+                emhash8::HashSet<uint32_t> visited;
                 visited.reserve(scc.size());
                 
                 bfs_queue.emplace_back(start_node, 0);

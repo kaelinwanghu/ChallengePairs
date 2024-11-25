@@ -89,8 +89,6 @@ int main()
 
     Graph people_graph;
 
-    emhash8::HashMap<uint32_t, uint32_t, XXIntHasher> id_normalizer;
-
     uint32_t failed_vertices = read_vertices(people_graph, "../data/wiki-livingpeople-names.txt");
 
     auto end_name = std::chrono::high_resolution_clock::now();
