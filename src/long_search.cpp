@@ -80,15 +80,16 @@ namespace long_search
     std::pair<uint32_t, uint32_t> bfs_search(const Graph& graph, const uint32_t start_node)
     {
         // Stores visited nodes
-        emhash8::HashSet<uint32_t> visited;
-        visited.reserve(graph.size());
+        std::vector<bool> visited(graph.size(), false);
+        size_t successor_size;
+        uint32_t successor_id;
 
         // deque stores pairs of (path_length, node_id)
         std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
 
         // Initialize the BFS queue with the start node
         bfs_queue.emplace_back(start_node, 1);
-        visited.emplace(start_node);
+        visited[start_node] = true;
 
         std::pair<uint32_t, uint32_t> best_path = {0, 0};
 
@@ -99,9 +100,10 @@ namespace long_search
             bfs_queue.pop_front();
 
             const std::vector<uint32_t>& successors = graph.successors(current_node, true);
+            successor_size = successors.size();
 
             // If current node is a sink node (no successors), store its path length
-            if (successors.empty())
+            if (successor_size == 0)
             {
                 if (current_path_length > best_path.second)
                 {
@@ -111,11 +113,13 @@ namespace long_search
             }
 
             // For each successor
-            for (const uint32_t successor : successors)
+            for (size_t i = 0; i < successor_size; ++i)
             {
-                if (visited.insert(successor).second)
+                successor_id = successors[i];
+                if (visited[successor_id] == false)
                 {
-                    bfs_queue.emplace_back(successor, current_path_length + 1);
+                    visited[successor_id] = true;
+                    bfs_queue.emplace_back(successor_id, current_path_length + 1);
                 }
             }
 
@@ -135,7 +139,6 @@ namespace long_search
         // Determine the number of threads to use
         const uint32_t num_threads = std::thread::hardware_concurrency();
         size_t start_nodes_size = start_nodes.size();
-        constexpr size_t batch_size = 32;
 
         // Atomic counter for dynamic scheduling
         std::atomic<size_t> index_counter(0);
@@ -153,15 +156,11 @@ namespace long_search
             local_results.reserve(start_nodes.size() / num_threads);
 
             size_t i;
-            while ((i = index_counter.fetch_add(batch_size, std::memory_order_relaxed)) < start_nodes_size)
+            while ((i = index_counter.fetch_add(1, std::memory_order_relaxed)) < start_nodes_size)
             {
-                const size_t actual_end = std::min(i + batch_size, start_nodes_size);
-                for (; i < actual_end; ++i)
-                {
-                    const uint32_t start_node = start_nodes[i];
-                    const std::pair<uint32_t, uint32_t> result = bfs_search(graph, start_node);
-                    local_results.emplace_back(start_node, result.first, result.second);
-                }
+                const uint32_t start_node = start_nodes[i];
+                const std::pair<uint32_t, uint32_t> result = bfs_search(graph, start_node);
+                local_results.emplace_back(start_node, result.first, result.second);
             }
         };
 
