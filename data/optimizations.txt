@@ -8,3 +8,7 @@ Stores the results of the thread's work into a local vector and merges them all 
 Used moved semantics for the merge at the end
 When processing the graph, reassign the IDs such that they are contiguous, and making a vector useable
 Clean up the multithreading
+Spammed noexcept and const for some performance improvements, and used Intel VTune to identify how XXHash was in fact degrading performance
+Removed XXHash and further normalized the graph
+Tested using small batches to avoid excessive atomic operations for the multithreading, but it made little to no difference
+Also used a vector of "visited nodes" instead of a HashSet, which made things much faster as well
