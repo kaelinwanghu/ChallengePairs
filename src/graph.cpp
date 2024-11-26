@@ -20,7 +20,7 @@ Graph::Graph() : edge_count(0), current_normalized_id(1)
 Graph::~Graph()
 { }
 
-void Graph::initialize_graph(uint32_t num_vertices)
+void Graph::initialize_graph(uint32_t num_vertices) noexcept
 {
     successor_list.reserve(num_vertices);
     predecessor_list.reserve(num_vertices);
@@ -30,23 +30,23 @@ void Graph::initialize_graph(uint32_t num_vertices)
 }
 
 // Gets the size of the graph in terms of vertices
-uint32_t Graph::size() const
+uint32_t Graph::size() const noexcept
 {
     return id_to_key.size() - 1;
 }
 
 
 // Gets the number of edges of the graph
-uint32_t Graph::num_edges() const
+uint32_t Graph::num_edges() const noexcept
 {
     return edge_count;
 }
 
 
 // Adds a vertex to the graph if it does not already exist (names should all be unique)
-bool Graph::add_vertex(const uint32_t node_id, const std::string& key)
+bool Graph::add_vertex(const uint32_t node_id, const std::string& key) noexcept
 {
-    uint32_t normalized_id = set_normalized_id(node_id);
+    const uint32_t normalized_id = set_normalized_id(node_id);
     // Check that the node doesn't exist yet before adding vertex
     if (has_vertex(normalized_id, true))
     {
@@ -64,10 +64,10 @@ bool Graph::add_vertex(const uint32_t node_id, const std::string& key)
 }
 
 // Adds an edge from a node to another if they do not exist already
-bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/)
+bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/) noexcept
 {
-    uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
-    uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
+    const uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
+    const uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
     if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
     {
         return false;
@@ -89,17 +89,17 @@ bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id, bool is_norma
 }
 
 // Checks whether the graph has a particular vertex with the node Id
-bool Graph::has_vertex(const uint32_t node_id, bool is_normalized /*= false*/) const
+bool Graph::has_vertex(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
 {
-    uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return normalized_id > 0 && normalized_id < id_to_key.size();
 }
 
 // Checks whether the graph has a particular edge with the node Id
-bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/ ) const
+bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/ ) const noexcept
 {
-    uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
-    uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
+    const uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
+    const uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
     if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
     {
         return false;
@@ -110,10 +110,10 @@ bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id, bool is_norma
 }
 
 // Removes an edge from the graph if it exists
-bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/)
+bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/) noexcept
 {
-    uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
-    uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
+    const uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
+    const uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
     if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
     {
         return false;
@@ -151,23 +151,23 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_no
 }
 
 // Calculates the out_degree of a node (how many edges originate from it)
-uint32_t Graph::out_degree(const uint32_t node_id, bool is_normalized /*= false*/) const
+uint32_t Graph::out_degree(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
 {
-    uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return successor_list[normalized_id].size();
 }
 
 
 // Calculates the in_degree of a node (how many edges end at it)
-uint32_t Graph::in_degree(const uint32_t node_id, bool is_normalized /*= false*/) const
+uint32_t Graph::in_degree(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
 {
-    uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return predecessor_list[normalized_id].size();
 }
 
 
 // Gets the node_id based on a particular string key (person name)
-uint32_t Graph::get_node_id(const std::string& key) const
+uint32_t Graph::get_node_id(const std::string& key) const noexcept
 {
     const auto it = key_to_id.find(key);
     if (it != key_to_id.end())
@@ -181,33 +181,33 @@ uint32_t Graph::get_node_id(const std::string& key) const
 }
 
 // Gets the key (person name) based on the specified node_id, opposite of function above
-std::string Graph::get_key(const uint32_t node_id, bool is_normalized /*= false*/) const
+std::string Graph::get_key(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
 {
-    uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return id_to_key[normalized_id];
 }
 
 // Gets the successor set of a certain node
-const std::vector<uint32_t>& Graph::successors(const uint32_t node_id, bool is_normalized /*= false*/) const
+const std::vector<uint32_t>& Graph::successors(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
 {
-    uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return successor_list[normalized_id];
 }
 
-const std::vector<uint32_t>& Graph::predecessors(const uint32_t node_id, bool is_normalized /*= false*/) const
+const std::vector<uint32_t>& Graph::predecessors(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
 {
-    uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     return predecessor_list[normalized_id];
 }
 
 // Returns a string representation of the graph
-std::string Graph::graph_string() const
+std::string Graph::graph_string() const noexcept
 {
     std::string result;
     // *8 for the characters, and + *2 because of the extra values
     result.reserve((num_edges() + size()) * 10);
 
-    uint32_t graph_size = size();
+    const uint32_t graph_size = size();
     for (size_t i = 1; i < graph_size; ++i)
     {
         const std::string& node_name = get_key(i, true);
@@ -229,10 +229,10 @@ std::string Graph::graph_string() const
     return result;
 }
 
-std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/) const
+std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/) const noexcept
 {
-    uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
-    uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
+    const uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
+    const uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
     // Early validation
     if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
     {
@@ -298,7 +298,7 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t
     return std::deque<uint32_t>();
 }
 
-Graph Graph::collapse_cliques() const
+Graph Graph::collapse_cliques() const noexcept
 {
     std::vector<emhash8::HashSet<uint32_t>> all_sccs = find_all_strongly_connected_components();
 
@@ -313,7 +313,7 @@ Graph Graph::collapse_cliques() const
     {
         if (scc.size() == 1)
         {
-            uint32_t node_id = *scc.begin();
+            const uint32_t node_id = *scc.begin();
             collapsed_node_id[node_id] = node_id;
             collapsed_graph.add_vertex(node_id, get_key(node_id, true));
         }
@@ -323,12 +323,12 @@ Graph Graph::collapse_cliques() const
             bool has_successors_outside = false;
             
             // Check for external connections
-            for (uint32_t node_id : scc)
+            for (const uint32_t node_id : scc)
             {
                 // Check successors
                 if (const std::vector<uint32_t>& successor_vector = successor_list[node_id]; !successor_vector.empty())
                 {
-                    for (uint32_t successor : successor_vector)
+                    for (const uint32_t successor : successor_vector)
                     {
                         if (scc.find(successor) == scc.end())
                         {
@@ -341,7 +341,7 @@ Graph Graph::collapse_cliques() const
                 // Check predecessors
                 if (const std::vector<uint32_t>& predecessor_vector = predecessor_list[node_id]; !predecessor_vector.empty())
                 {
-                    for (uint32_t predecessor : predecessor_vector)
+                    for (const uint32_t predecessor : predecessor_vector)
                     {
                         if (scc.find(predecessor) == scc.end())
                         {
@@ -359,7 +359,7 @@ Graph Graph::collapse_cliques() const
             if (!has_predecessors_outside || !has_successors_outside)
             {
                 // Do not collapse if it will either become a sink or source node
-                for (uint32_t node_id : scc)
+                for (const uint32_t node_id : scc)
                 {
                     collapsed_node_id[node_id] = node_id;
                     collapsed_graph.add_vertex(node_id, get_key(node_id, true));
@@ -368,7 +368,7 @@ Graph Graph::collapse_cliques() const
             else
             {
                 // Collapse the SCC (entry points already stored above)
-                for (uint32_t node_id : scc)
+                for (const uint32_t node_id : scc)
                 {
                     collapsed_node_id[node_id] = next_scc_node_id;
                 }
@@ -382,10 +382,10 @@ Graph Graph::collapse_cliques() const
     // Add edges to the collapsed graph
     for (size_t from_id = 1; from_id < successor_list_size; ++from_id)
     {
-        for (uint32_t to_id : successor_list[from_id])
+        for (const uint32_t to_id : successor_list[from_id])
         {
-            uint32_t from_collapsed_id = collapsed_node_id[from_id];
-            uint32_t to_collapsed_id = collapsed_node_id[to_id];
+            const uint32_t from_collapsed_id = collapsed_node_id[from_id];
+            const uint32_t to_collapsed_id = collapsed_node_id[to_id];
             if (from_collapsed_id != to_collapsed_id)
             {
                 collapsed_graph.add_edge(from_collapsed_id, to_collapsed_id, true);
@@ -397,7 +397,7 @@ Graph Graph::collapse_cliques() const
 }
 
 
-std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_components() const
+std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_components() const noexcept
 {
     // Stack frame for recursion simulator in the stack
     struct stack_frame
@@ -425,7 +425,8 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
     uint32_t current_index = 0;
     // Vector to store all Strongly Connected Components found
     std::vector<emhash8::HashSet<uint32_t>> strongly_connected_components;
-    size_t graph_size = size();
+
+    const size_t graph_size = size();
     node_index.reserve(size());
     node_lowlink.reserve(size());
     visited_nodes.reserve(size());
@@ -445,7 +446,7 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
             while (!dfs_stack.empty())
             {
                 stack_frame& current_frame = dfs_stack.top();
-                uint32_t current_node = current_frame.node_id;
+                const uint32_t current_node = current_frame.node_id;
                 bool has_successors = false; // Controls the recursion flow
 
                 // First time visiting this node
@@ -462,11 +463,11 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
                 // Process all successors of the current node
                 while (current_frame.successor_it != current_frame.successors_end)
                 {
-                    uint32_t successor_node = *(current_frame.successor_it++);
+                    const uint32_t successor_node = *(current_frame.successor_it++);
                     if (visited_nodes.find(successor_node) == visited_nodes.end())
                     {
                         // Successor node has not been visited; recurse on it
-                        const auto& successor_successors = successor_list.at(successor_node);
+                        const auto& successor_successors = successor_list[successor_node];
                         dfs_stack.emplace(successor_node, successor_successors.begin(), successor_successors.end(), false);
                         has_successors = true;
                         break; // Pause processing current node for the next node
@@ -496,7 +497,8 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
                         data_stack.pop();
                         on_stack.erase(top_node);
                         current_component.emplace(top_node);
-                    } while (top_node != current_node);
+                    }
+                    while (top_node != current_node);
 
                     // Add the found SCC to the list of all SCCs
                     strongly_connected_components.emplace_back(current_component);
@@ -505,7 +507,7 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
                 if (!dfs_stack.empty())
                 {
                     // Update the lowlink value of the parent node potentially
-                    uint32_t parent_node = dfs_stack.top().node_id;
+                    const uint32_t parent_node = dfs_stack.top().node_id;
                     node_lowlink[parent_node] = std::min(node_lowlink[parent_node], node_lowlink[current_node]);
                 }
             }
@@ -515,7 +517,7 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
     return strongly_connected_components;
 }
 
-void Graph::compute_scc_diameters()
+void Graph::compute_scc_diameters() noexcept
 {
     std::vector<emhash8::HashSet<uint32_t>> all_sccs = find_all_strongly_connected_components();
     
@@ -541,12 +543,11 @@ void Graph::compute_scc_diameters()
         if (scc.size() <= SMALL_SCC_THRESHOLD)
         {
             // For small components, run BFS from every node for exact diameter
-            for (uint32_t start_node : scc)
+            for (const uint32_t start_node : scc)
             {
                 std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
                 emhash8::HashSet<uint32_t> visited;
                 visited.reserve(scc.size());  // Pre-allocate visited set
-                
                 bfs_queue.emplace_back(start_node, 0);
                 visited.insert(start_node);
                 
@@ -556,7 +557,7 @@ void Graph::compute_scc_diameters()
                     bfs_queue.pop_front();
                     diameter = std::max(diameter, distance);
                     // Only look at successors within the same SCC
-                    for (uint32_t successor : successor_list[current_node])
+                    for (const uint32_t successor : successor_list[current_node])
                     {
                         if (scc.find(successor) != scc.end() && visited.insert(successor).second)
                         {
@@ -569,11 +570,12 @@ void Graph::compute_scc_diameters()
         else
         {
             // For large ones, sample nodes for approximate diameter
-            auto current_component = std::vector<uint32_t>(scc.begin(), scc.end());
-            // Select evenly spaced samples for better 
-            size_t step = current_component.size() / NUM_SAMPLES;
+            const auto& current_component = std::vector<uint32_t>(scc.begin(), scc.end());
+            // Select evenly spaced samples for better
+            const size_t current_component_size = current_component.size();
+            size_t step = current_component_size / NUM_SAMPLES;
             
-            for (size_t i = 0; i < current_component.size() && i < NUM_SAMPLES * step; i += step)
+            for (size_t i = 0; i < current_component_size && i < NUM_SAMPLES * step; i += step)
             {
                 uint32_t start_node = current_component[i];
                 std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
@@ -588,7 +590,7 @@ void Graph::compute_scc_diameters()
                     auto [current_node, distance] = bfs_queue.front();
                     bfs_queue.pop_front();
                     diameter = std::max(diameter, distance);
-                    for (uint32_t successor : successor_list[current_node])
+                    for (const uint32_t successor : successor_list[current_node])
                     {
                         if (scc.find(successor) != scc.end() && visited.insert(successor).second)
                         {
@@ -602,13 +604,13 @@ void Graph::compute_scc_diameters()
     }
 }
 
-uint32_t Graph::get_scc_diameter(uint32_t node_id, bool is_normalized /*= false*/) const
+uint32_t Graph::get_scc_diameter(uint32_t node_id, bool is_normalized /*= false*/) const noexcept
 {
-    uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
     auto scc_id = node_to_scc[normalized_id];
     if (scc_id != 0)
     {
-        auto diameter_scc_id = scc_to_diameter.find(scc_id);
+        const auto diameter_scc_id = scc_to_diameter.find(scc_id);
         if (diameter_scc_id != scc_to_diameter.end())
         {
             return diameter_scc_id->second;
@@ -618,17 +620,17 @@ uint32_t Graph::get_scc_diameter(uint32_t node_id, bool is_normalized /*= false*
     return 1;
 }
 
-uint32_t Graph::get_normalized_id(uint32_t node_id) const
+uint32_t Graph::get_normalized_id(uint32_t node_id) const noexcept
 {
-    auto it = id_normalizer.find(node_id);
+    const auto it = id_normalizer.find(node_id);
     return it != id_normalizer.end() ? it->second : 0;
 }
 
-uint32_t Graph::set_normalized_id(uint32_t node_id)
+uint32_t Graph::set_normalized_id(uint32_t node_id) noexcept
 {
     if (current_normalized_id == std::numeric_limits<uint32_t>::max())
     {
-        throw std::runtime_error("Normalized ID overflow");
+        abort();
     }
 
     id_normalizer[node_id] = current_normalized_id;
@@ -637,12 +639,12 @@ uint32_t Graph::set_normalized_id(uint32_t node_id)
 
 // Iterators using id_to_key to go through the entire graph (order not guaranteed)
 
-Graph::node_iterator Graph::node_begin() const
+Graph::node_iterator Graph::node_begin() const noexcept
 {
     return key_to_id.cbegin();
 }
 
-Graph::node_iterator Graph::node_end() const
+Graph::node_iterator Graph::node_end() const noexcept
 {
     return key_to_id.cend();
 }

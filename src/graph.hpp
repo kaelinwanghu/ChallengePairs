@@ -20,68 +20,51 @@
 
 // Note that the graph edges are around 3 million, so a uint32_t should suffice
 
-// Hash functions for both ints and strings using xxHash
-// struct XXStringHasher
-// {
-//     uint64_t operator()(const std::string& key) const
-//     {
-//         return XXH64(key.data(), key.size(), 0);
-//     }
-// };
-
-// struct XXIntHasher
-// {
-//     uint64_t operator()(const uint32_t& key) const
-//     {
-//         return XXH64(&key, sizeof(key), 0);
-//     }
-// };
-
 class Graph
 {
 public:
     Graph();
     ~Graph();
-    void initialize_graph(uint32_t num_vertices);
+    void initialize_graph(uint32_t num_vertices) noexcept;
 
-    uint32_t size() const;
-    uint32_t num_edges() const;
+    uint32_t size() const noexcept;
+    uint32_t num_edges() const noexcept;
 
-    bool add_vertex(const uint32_t node_id, const std::string& key);
-    bool add_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false);
+    bool add_vertex(const uint32_t node_id, const std::string& key) noexcept;
+    bool add_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) noexcept;
 
-    bool has_vertex(const uint32_t node_id, bool is_normalized = false) const;
-    bool has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const;
+    bool has_vertex(const uint32_t node_id, bool is_normalized = false) const noexcept;
+    bool has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const noexcept;
 
-    bool remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false);
+    bool remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) noexcept;
 
-    uint32_t out_degree(const uint32_t node_id, bool is_normalized = false) const;
-    uint32_t in_degree(const uint32_t , bool is_normalized = false) const;
+    uint32_t out_degree(const uint32_t node_id, bool is_normalized = false) const noexcept;
+    uint32_t in_degree(const uint32_t , bool is_normalized = false) const noexcept;
 
-    uint32_t get_node_id(const std::string& key) const;
-    std::string get_key(const uint32_t node_id, bool is_normalized = false) const;
+    uint32_t get_node_id(const std::string& key) const noexcept;
+    std::string get_key(const uint32_t node_id, bool is_normalized = false) const noexcept;
 
-    std::string graph_string() const;
+    std::string graph_string() const noexcept;
 
-    std::deque<uint32_t> shortest_path(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const;
+    std::deque<uint32_t> shortest_path(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const noexcept;
 
-    const std::vector<uint32_t>& successors(const uint32_t node_id, bool is_normalized = false) const;
-    const std::vector<uint32_t>& predecessors(const uint32_t node_id, bool is_normalized = false) const;
+    const std::vector<uint32_t>& successors(const uint32_t node_id, bool is_normalized = false) const noexcept;
+    const std::vector<uint32_t>& predecessors(const uint32_t node_id, bool is_normalized = false) const noexcept;
     
-    void compute_scc_diameters();
+    void compute_scc_diameters() noexcept;
 
     // Get the diameter of the SCC that the node is in (if any)
-    uint32_t get_scc_diameter(uint32_t node_id, bool is_normalized = false) const;
+    uint32_t get_scc_diameter(uint32_t node_id, bool is_normalized = false) const noexcept;
 
-    Graph collapse_cliques() const;
-    std::vector<emhash8::HashSet<uint32_t>> find_all_strongly_connected_components() const;
+    Graph collapse_cliques() const noexcept;
+    std::vector<emhash8::HashSet<uint32_t>> find_all_strongly_connected_components() const noexcept;
 
-    uint32_t get_normalized_id(uint32_t node_id) const;
-    uint32_t set_normalized_id(uint32_t node_id);
+    uint32_t get_normalized_id(uint32_t node_id) const noexcept;
+    uint32_t set_normalized_id(uint32_t node_id) noexcept;
 
     using node_iterator = emhash8::HashMap<std::string, uint32_t>::const_iterator;    // The actual iterators so the entire graph can be traversed
-    node_iterator node_begin() const;
-    node_iterator node_end() const;
+    node_iterator node_begin() const noexcept;
+    node_iterator node_end() const noexcept;
 
 private:
     std::vector<std::vector<uint32_t>> successor_list;

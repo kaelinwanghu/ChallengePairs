@@ -5,7 +5,7 @@
 
 namespace long_search
 {
-    std::pair<uint32_t, uint32_t> enhanced_bfs_search(const Graph& graph, const Graph& full_graph, uint32_t start_node)
+    std::pair<uint32_t, uint32_t> enhanced_bfs_search(const Graph& graph, const Graph& full_graph, uint32_t start_node) noexcept
     {
         constexpr uint32_t TOP_PATHS = 20;
 
@@ -77,16 +77,13 @@ namespace long_search
     }
 
     // Standard BFS search
-    std::pair<uint32_t, uint32_t> bfs_search(const Graph& graph, const uint32_t start_node)
+    std::pair<uint32_t, uint32_t> bfs_search(const Graph& graph, const uint32_t start_node) noexcept
     {
         // Stores visited nodes
         std::vector<bool> visited(graph.size(), false);
-        size_t successor_size;
-        uint32_t successor_id;
-
         // deque stores pairs of (path_length, node_id)
         std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
-
+        
         // Initialize the BFS queue with the start node
         bfs_queue.emplace_back(start_node, 1);
         visited[start_node] = true;
@@ -100,10 +97,9 @@ namespace long_search
             bfs_queue.pop_front();
 
             const std::vector<uint32_t>& successors = graph.successors(current_node, true);
-            successor_size = successors.size();
 
             // If current node is a sink node (no successors), store its path length
-            if (successor_size == 0)
+            if (successors.empty())
             {
                 if (current_path_length > best_path.second)
                 {
@@ -113,9 +109,8 @@ namespace long_search
             }
 
             // For each successor
-            for (size_t i = 0; i < successor_size; ++i)
+            for (const uint32_t successor_id : successors)
             {
-                successor_id = successors[i];
                 if (visited[successor_id] == false)
                 {
                     visited[successor_id] = true;
@@ -132,13 +127,13 @@ namespace long_search
         return best_path;
     }
     
-    std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes)
+    std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes) noexcept
     {
         std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
 
         // Determine the number of threads to use
         const uint32_t num_threads = std::thread::hardware_concurrency();
-        size_t start_nodes_size = start_nodes.size();
+        const size_t start_nodes_size = start_nodes.size();
 
         // Atomic counter for dynamic scheduling
         std::atomic<size_t> index_counter(0);
