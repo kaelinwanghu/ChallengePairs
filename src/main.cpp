@@ -101,15 +101,12 @@ int main()
     std::cout << "Read " << people_graph.num_edges() << " and failed to read " << failed_edges << " edges in " << (std::chrono::duration_cast<std::chrono::milliseconds>(end_link - end_name).count()) << " milliseconds\n";
 
     std::vector<uint32_t> source_nodes;
-    source_nodes.reserve(people_graph.size() / 4); // Really rough approximation (still probably better than default size)
+    source_nodes.reserve(people_graph.size()); // Really rough approximation (still probably better than default size)
     for (auto it = people_graph.node_begin(); it != people_graph.node_end(); ++it)
     {
-        if (people_graph.predecessors(it->second).size() == 0)
-        {
-            source_nodes.emplace_back(it->second);
-        }
+        source_nodes.emplace_back(it->second);
     }
-
+    
     auto search_start = std::chrono::high_resolution_clock::now();
 
     std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results = long_search::multithread_search(people_graph, source_nodes);
@@ -120,12 +117,12 @@ int main()
         << (std::chrono::duration_cast<std::chrono::milliseconds>(search_end - search_start)).count() 
         << " milliseconds\n";
 
-    if (!results.empty())
+    for (size_t i = 0; i <= 120; ++i)
     {
-        const auto& best_chain = results.front();
-        std::cout << "Source node: " << people_graph.get_key(std::get<0>(best_chain), true)
-            << " | Sink node: " << people_graph.get_key(std::get<1>(best_chain), true)
-            << " | Length: " << std::get<2>(best_chain) << "\n";
+        const auto& current_chain = results[i];
+        std::cout << "Source node: " << people_graph.get_key(std::get<0>(current_chain), true)
+            << " | Sink node: " << people_graph.get_key(std::get<1>(current_chain), true)
+            << " | Length: " << std::get<2>(current_chain) << "\n";
     }
 
     return 0;
