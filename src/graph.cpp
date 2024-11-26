@@ -247,7 +247,7 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t
 
     // Pre-allocate with reasonable sizes
     emhash8::HashMap<uint32_t, uint32_t> parent_map;
-    emhash8::HashSet<uint32_t> visited_nodes;
+    std::vector<bool> visited_nodes;
     std::deque<uint32_t> bfs_queue;
     
     parent_map.reserve(size() / 4);
@@ -255,7 +255,7 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t
     
     // Initialize search
     bfs_queue.emplace_back(normalized_from_id);
-    visited_nodes.insert(normalized_from_id);
+    visited_nodes[normalized_from_id] = true;
     
     while (!bfs_queue.empty())
     {
@@ -286,8 +286,9 @@ std::deque<uint32_t> Graph::shortest_path(const uint32_t from_id, const uint32_t
                 return path;
             }
             // Process unvisited nodes
-            if (visited_nodes.insert(successor).second)
+            if (!visited_nodes[successor])
             {
+                visited_nodes[successor] = true;
                 parent_map[successor] = current_node;
                 bfs_queue.emplace_back(successor);
             }
@@ -416,7 +417,7 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
     // Map each node to the lowest index reachable from it (lowlink value)
     emhash8::HashMap<uint32_t, uint32_t> node_lowlink;
     // Set of nodes that have been visited
-    emhash8::HashSet<uint32_t> visited_nodes;
+    std::vector<bool> visited_nodes;
     // Stack to store the data of current nodes
     std::stack<uint32_t> data_stack;
     // Set to quickly check if a node is on the DFS stack
@@ -435,7 +436,7 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
     // Iterate over all nodes in the graph
     for (size_t it = 1; it != graph_size; ++it)
     {
-        if (visited_nodes.find(static_cast<uint32_t>(it)) == visited_nodes.end())
+        if (!visited_nodes[it])
         {
             // Stack to simulate recursive DFS iteratively
             std::stack<stack_frame> dfs_stack;
@@ -455,7 +456,7 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
                     node_index[current_node] = current_index;
                     node_lowlink[current_node] = current_index;
                     ++current_index;
-                    visited_nodes.insert(current_node);
+                    visited_nodes[current_node] = true;
                     data_stack.emplace(current_node);
                     on_stack.insert(current_node);
                     current_frame.visited = true;
@@ -464,7 +465,7 @@ std::vector<emhash8::HashSet<uint32_t>> Graph::find_all_strongly_connected_compo
                 while (current_frame.successor_it != current_frame.successors_end)
                 {
                     const uint32_t successor_node = *(current_frame.successor_it++);
-                    if (visited_nodes.find(successor_node) == visited_nodes.end())
+                    if (!visited_nodes[successor_node])
                     {
                         // Successor node has not been visited; recurse on it
                         const auto& successor_successors = successor_list[successor_node];
@@ -546,10 +547,10 @@ void Graph::compute_scc_diameters() noexcept
             for (const uint32_t start_node : scc)
             {
                 std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
-                emhash8::HashSet<uint32_t> visited;
+                std::vector<bool> visited;
                 visited.reserve(scc.size());  // Pre-allocate visited set
                 bfs_queue.emplace_back(start_node, 0);
-                visited.insert(start_node);
+                visited[start_node] = true;
                 
                 while (!bfs_queue.empty())
                 {
@@ -559,8 +560,9 @@ void Graph::compute_scc_diameters() noexcept
                     // Only look at successors within the same SCC
                     for (const uint32_t successor : successor_list[current_node])
                     {
-                        if (scc.find(successor) != scc.end() && visited.insert(successor).second)
+                        if (scc.find(successor) != scc.end() && !visited[successor])
                         {
+                            visited[successor] = true;
                             bfs_queue.emplace_back(successor, distance + 1);
                         }
                     }
@@ -579,11 +581,11 @@ void Graph::compute_scc_diameters() noexcept
             {
                 uint32_t start_node = current_component[i];
                 std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
-                emhash8::HashSet<uint32_t> visited;
+                std::vector<bool> visited;
                 visited.reserve(scc.size());
                 
                 bfs_queue.emplace_back(start_node, 0);
-                visited.insert(start_node);
+                visited[start_node] = true;
                 
                 while (!bfs_queue.empty())
                 {
@@ -592,8 +594,9 @@ void Graph::compute_scc_diameters() noexcept
                     diameter = std::max(diameter, distance);
                     for (const uint32_t successor : successor_list[current_node])
                     {
-                        if (scc.find(successor) != scc.end() && visited.insert(successor).second)
+                        if (scc.find(successor) != scc.end() && !visited[successor])
                         {
+                            visited[successor] = true;
                             bfs_queue.emplace_back(successor, distance + 1);
                         }
                     }
