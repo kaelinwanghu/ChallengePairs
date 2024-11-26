@@ -14,7 +14,7 @@ namespace long_search
         sink_paths.reserve(50000); // Trust me
 
         // Stores visited nodes
-        emhash8::HashSet<uint32_t> visited;
+        std::vector<bool> visited;
         visited.reserve(graph.size());
 
         // deque stores pairs of (estimated_length, node_id)
@@ -22,7 +22,7 @@ namespace long_search
 
         // Initialize the priority queue with the start node, always guaranteed to be a single node
         bfs_queue.emplace_back(start_node, 1);
-        visited.insert(start_node);
+        visited[start_node] = true;
 
         // Actual BFS search
         while (!bfs_queue.empty())
@@ -42,8 +42,9 @@ namespace long_search
             for (auto it = successors.cbegin(); it != successors.cend(); ++it)
             {
                 const uint32_t successor = *it;
-                if (visited.insert(successor).second)
+                if (!visited[successor])
                 {
+                    visited[successor] = true;
                     bfs_queue.emplace_back(successor, current_estimated_length + graph.get_scc_diameter(successor));
                 }
             }
@@ -83,7 +84,7 @@ namespace long_search
         std::vector<bool> visited(graph.size(), false);
         // deque stores pairs of (path_length, node_id)
         std::deque<std::pair<uint32_t, uint32_t>> bfs_queue;
-        
+
         // Initialize the BFS queue with the start node
         bfs_queue.emplace_back(start_node, 1);
         visited[start_node] = true;
@@ -111,7 +112,7 @@ namespace long_search
             // For each successor
             for (const uint32_t successor_id : successors)
             {
-                if (visited[successor_id] == false)
+                if (!visited[successor_id])
                 {
                     visited[successor_id] = true;
                     bfs_queue.emplace_back(successor_id, current_path_length + 1);
