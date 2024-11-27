@@ -27,29 +27,81 @@ public:
     ~Graph();
     void initialize_graph(uint32_t num_vertices) noexcept;
 
-    uint32_t size() const noexcept;
-    uint32_t num_edges() const noexcept;
+    inline uint32_t size() const noexcept
+    {
+        return id_to_key.size() - 1;
+    }
+    inline uint32_t num_edges() const noexcept
+    {
+        return edge_count;
+    }
 
     bool add_vertex(const uint32_t node_id, const std::string& key) noexcept;
     bool add_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) noexcept;
 
-    bool has_vertex(const uint32_t node_id, bool is_normalized = false) const noexcept;
-    bool has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const noexcept;
+    inline bool has_vertex(const uint32_t node_id, bool is_normalized = false) const noexcept
+    {
+        const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+        return normalized_id > 0 && normalized_id < id_to_key.size();
+    }
+    inline bool has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const 
+    {
+        const uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
+        const uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
+        if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
+        {
+            return false;
+        }
+
+        const std::vector<uint32_t>& successors = successor_list[normalized_from_id];
+        return std::find(successors.begin(), successors.end(), normalized_to_id) != successors.end();
+    }
 
     bool remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) noexcept;
 
-    uint32_t out_degree(const uint32_t node_id, bool is_normalized = false) const noexcept;
-    uint32_t in_degree(const uint32_t , bool is_normalized = false) const noexcept;
+    inline uint32_t out_degree(const uint32_t node_id, bool is_normalized = false) const noexcept
+    {
+        const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+        return successor_list[normalized_id].size();
+    }
+    inline uint32_t in_degree(const uint32_t node_id, bool is_normalized = false) const noexcept
+    {
+        const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+        return predecessor_list[normalized_id].size();
+    }
 
-    uint32_t get_node_id(const std::string& key) const noexcept;
-    std::string get_key(const uint32_t node_id, bool is_normalized = false) const noexcept;
+    inline uint32_t get_node_id(const std::string& key) const noexcept
+    {
+        const auto it = key_to_id.find(key);
+        if (it != key_to_id.end())
+        {
+            return it->second;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    inline std::string get_key(const uint32_t node_id, bool is_normalized = false) const noexcept
+    {
+        const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+        return id_to_key[normalized_id];
+    }
 
     std::string graph_string() const noexcept;
 
     std::deque<uint32_t> shortest_path(const uint32_t from_id, const uint32_t to_id, bool is_normalized = false) const noexcept;
 
-    const std::vector<uint32_t>& successors(const uint32_t node_id, bool is_normalized = false) const noexcept;
-    const std::vector<uint32_t>& predecessors(const uint32_t node_id, bool is_normalized = false) const noexcept;
+    inline const std::vector<uint32_t>& successors(const uint32_t node_id, bool is_normalized = false) const noexcept
+    {
+        const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+        return successor_list[normalized_id];
+    }
+    inline const std::vector<uint32_t>& predecessors(const uint32_t node_id, bool is_normalized = false) const noexcept
+    {
+        const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
+        return predecessor_list[normalized_id];
+    }
     
     void compute_scc_diameters() noexcept;
 
@@ -59,12 +111,23 @@ public:
     Graph collapse_cliques() const noexcept;
     std::vector<emhash8::HashSet<uint32_t>> find_all_strongly_connected_components() const noexcept;
 
-    uint32_t get_normalized_id(uint32_t node_id) const noexcept;
+    inline uint32_t get_normalized_id(uint32_t node_id) const noexcept
+    {
+        const auto it = id_normalizer.find(node_id);
+        return it != id_normalizer.end() ? it->second : 0;
+    }
     uint32_t set_normalized_id(uint32_t node_id) noexcept;
 
     using node_iterator = emhash8::HashMap<std::string, uint32_t>::const_iterator;    // The actual iterators so the entire graph can be traversed
-    node_iterator node_begin() const noexcept;
-    node_iterator node_end() const noexcept;
+    // Iterators using id_to_key to go through the entire graph (order not guaranteed)
+     node_iterator node_begin() const noexcept
+    {
+        return key_to_id.cbegin();
+    }
+    inline node_iterator node_end() const noexcept
+    {
+        return key_to_id.cend();
+    }
 
 private:
     std::vector<std::vector<uint32_t>> successor_list;

@@ -90,6 +90,7 @@ namespace long_search
         visited[start_node] = true;
 
         std::pair<uint32_t, uint32_t> best_path = {0, 0};
+        uint32_t successor_id;
 
         // Actual BFS search
         while (!bfs_queue.empty())
@@ -110,8 +111,10 @@ namespace long_search
             }
 
             // For each successor
-            for (const uint32_t successor_id : successors)
+            const uint32_t* const end = successors.data() + successors.size();
+            for (const uint32_t* successor = successors.data(); successor != end; ++successor)
             {
+                successor_id = *successor;
                 if (!visited[successor_id])
                 {
                     visited[successor_id] = true;

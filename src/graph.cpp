@@ -29,20 +29,6 @@ void Graph::initialize_graph(uint32_t num_vertices) noexcept
     node_to_scc.reserve(num_vertices);
 }
 
-// Gets the size of the graph in terms of vertices
-uint32_t Graph::size() const noexcept
-{
-    return id_to_key.size() - 1;
-}
-
-
-// Gets the number of edges of the graph
-uint32_t Graph::num_edges() const noexcept
-{
-    return edge_count;
-}
-
-
 // Adds a vertex to the graph if it does not already exist (names should all be unique)
 bool Graph::add_vertex(const uint32_t node_id, const std::string& key) noexcept
 {
@@ -88,27 +74,6 @@ bool Graph::add_edge(const uint32_t from_id, const uint32_t to_id, bool is_norma
     return true;
 }
 
-// Checks whether the graph has a particular vertex with the node Id
-bool Graph::has_vertex(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
-{
-    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
-    return normalized_id > 0 && normalized_id < id_to_key.size();
-}
-
-// Checks whether the graph has a particular edge with the node Id
-bool Graph::has_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/ ) const noexcept
-{
-    const uint32_t normalized_from_id = is_normalized ? from_id : get_normalized_id(from_id);
-    const uint32_t normalized_to_id = is_normalized ? to_id : get_normalized_id(to_id);
-    if (!has_vertex(normalized_from_id, true) || !has_vertex(normalized_to_id, true))
-    {
-        return false;
-    }
-
-    const std::vector<uint32_t>& successors = successor_list[normalized_from_id];
-    return std::find(successors.begin(), successors.end(), normalized_to_id) != successors.end();
-}
-
 // Removes an edge from the graph if it exists
 bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_normalized /*= false*/) noexcept
 {
@@ -148,56 +113,6 @@ bool Graph::remove_edge(const uint32_t from_id, const uint32_t to_id, bool is_no
     --edge_count;
 
     return true;
-}
-
-// Calculates the out_degree of a node (how many edges originate from it)
-uint32_t Graph::out_degree(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
-{
-    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
-    return successor_list[normalized_id].size();
-}
-
-
-// Calculates the in_degree of a node (how many edges end at it)
-uint32_t Graph::in_degree(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
-{
-    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
-    return predecessor_list[normalized_id].size();
-}
-
-
-// Gets the node_id based on a particular string key (person name)
-uint32_t Graph::get_node_id(const std::string& key) const noexcept
-{
-    const auto it = key_to_id.find(key);
-    if (it != key_to_id.end())
-    {
-        return it->second;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
-// Gets the key (person name) based on the specified node_id, opposite of function above
-std::string Graph::get_key(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
-{
-    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
-    return id_to_key[normalized_id];
-}
-
-// Gets the successor set of a certain node
-const std::vector<uint32_t>& Graph::successors(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
-{
-    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
-    return successor_list[normalized_id];
-}
-
-const std::vector<uint32_t>& Graph::predecessors(const uint32_t node_id, bool is_normalized /*= false*/) const noexcept
-{
-    const uint32_t normalized_id = is_normalized ? node_id : get_normalized_id(node_id);
-    return predecessor_list[normalized_id];
 }
 
 // Returns a string representation of the graph
@@ -623,31 +538,13 @@ uint32_t Graph::get_scc_diameter(uint32_t node_id, bool is_normalized /*= false*
     return 1;
 }
 
-uint32_t Graph::get_normalized_id(uint32_t node_id) const noexcept
-{
-    const auto it = id_normalizer.find(node_id);
-    return it != id_normalizer.end() ? it->second : 0;
-}
-
 uint32_t Graph::set_normalized_id(uint32_t node_id) noexcept
 {
     if (current_normalized_id == std::numeric_limits<uint32_t>::max())
     {
-        abort();
+        abort(); // If there are more than 2^32 - 1 vertices, just quit
     }
 
     id_normalizer[node_id] = current_normalized_id;
     return current_normalized_id++;
-}
-
-// Iterators using id_to_key to go through the entire graph (order not guaranteed)
-
-Graph::node_iterator Graph::node_begin() const noexcept
-{
-    return key_to_id.cbegin();
-}
-
-Graph::node_iterator Graph::node_end() const noexcept
-{
-    return key_to_id.cend();
 }
