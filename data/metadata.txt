@@ -5,3 +5,167 @@ Collapsed graph has 142113 nodes with no predecessors and 104155 nodes with no s
 Collapsed graph with no predecessor/successor edge collapsing size: 306266 | edge number: 375889
 Collapsed graph with no predecessor/successor edge collapsing has: 133072 nodes with no predecessors, and 93167 nodes with no successors
 Longest shortest pair is confirmed to be of length 40
+
+Some Multithreading Data:
+Thread Statistics:
+Total execution time: 9521.99ms
+
+Thread 0:
+    Searches completed: 182
+    Total search time: 9495.01ms
+    Completion time: 9495.23ms
+    Average search time: 52.1704ms
+    Min search time: 0.0039ms
+    Max search time: 68.5481ms
+
+Thread 1:
+    Searches completed: 187
+    Total search time: 9507.8ms
+    Completion time: 9508.16ms
+    Average search time: 50.8439ms
+    Min search time: 0.0036ms
+    Max search time: 67.5223ms
+
+Thread 2:
+    Searches completed: 182
+    Total search time: 9496.1ms
+    Completion time: 9496.43ms
+    Average search time: 52.1764ms
+    Min search time: 0.0018ms
+    Max search time: 75.5333ms
+
+Thread 3:
+    Searches completed: 182
+    Total search time: 9500.73ms
+    Completion time: 9501.62ms
+    Average search time: 52.2018ms
+    Min search time: 0.0017ms
+    Max search time: 78.5346ms
+
+Thread 4:
+    Searches completed: 177
+    Total search time: 9494.67ms
+    Completion time: 9495.23ms
+    Average search time: 53.6422ms
+    Min search time: 0.0043ms
+    Max search time: 82.6747ms
+
+Thread 5:
+    Searches completed: 177
+    Total search time: 9486.44ms
+    Completion time: 9486.91ms
+    Average search time: 53.5957ms
+    Min search time: 0.0017ms
+    Max search time: 81.2668ms
+
+Thread 6:
+    Searches completed: 175
+    Total search time: 9478.37ms
+    Completion time: 9479.03ms
+    Average search time: 54.1621ms
+    Min search time: 0.0049ms
+    Max search time: 84.6709ms
+
+Thread 7:
+    Searches completed: 183
+    Total search time: 9514.84ms
+    Completion time: 9516.61ms
+    Average search time: 51.9936ms
+    Min search time: 0.002ms
+    Max search time: 80.6557ms
+
+Thread 8:
+    Searches completed: 186
+    Total search time: 9496.97ms
+    Completion time: 9497.85ms
+    Average search time: 51.059ms
+    Min search time: 0.0037ms
+    Max search time: 72.4761ms
+
+Thread 9:
+    Searches completed: 178
+    Total search time: 9468.62ms
+    Completion time: 9470.04ms
+    Average search time: 53.1945ms
+    Min search time: 0.0032ms
+    Max search time: 77.4286ms
+
+Thread 10:
+    Searches completed: 177
+    Total search time: 9507.63ms
+    Completion time: 9508.64ms
+    Average search time: 53.7155ms
+    Min search time: 0.0024ms
+    Max search time: 78.7185ms
+
+Thread 11:
+    Searches completed: 179
+    Total search time: 9496.38ms
+    Completion time: 9498.03ms
+    Average search time: 53.0524ms
+    Min search time: 0.0019ms
+    Max search time: 76.5134ms
+
+Thread 12:
+    Searches completed: 186
+    Total search time: 9507.74ms
+    Completion time: 9508.5ms
+    Average search time: 51.1169ms
+    Min search time: 0.0032ms
+    Max search time: 73.0708ms
+
+Thread 13:
+    Searches completed: 180
+    Total search time: 9502.15ms
+    Completion time: 9503.75ms
+    Average search time: 52.7897ms
+    Min search time: 0.0022ms
+    Max search time: 70.9016ms
+
+Thread 14:
+    Searches completed: 181
+    Total search time: 9481.78ms
+    Completion time: 9483.44ms
+    Average search time: 52.3855ms
+    Min search time: 0.0043ms
+    Max search time: 78.6931ms
+
+Thread 15:
+    Searches completed: 171
+    Total search time: 9496.55ms
+    Completion time: 9498.27ms
+    Average search time: 55.5354ms
+    Min search time: 0.0018ms
+    Max search time: 87.945ms
+
+Thread 16:
+    Searches completed: 179
+    Total search time: 9490.95ms
+    Completion time: 9493.29ms
+    Average search time: 53.022ms
+    Min search time: 0.004ms
+    Max search time: 71.7284ms
+
+Thread 17:
+    Searches completed: 175
+    Total search time: 9501.47ms
+    Completion time: 9503.59ms
+    Average search time: 54.2941ms
+    Min search time: 0.0048ms
+    Max search time: 85.2618ms
+
+Thread 18:
+    Searches completed: 177
+    Total search time: 9519.68ms
+    Completion time: 9521.88ms
+    Average search time: 53.7835ms
+    Min search time: 0.0033ms
+    Max search time: 76.9111ms
+
+Thread 19:
+    Searches completed: 186
+    Total search time: 9481.16ms
+    Completion time: 9483.45ms
+    Average search time: 50.974ms
+    Min search time: 0.0018ms
+    Max search time: 85.7983ms

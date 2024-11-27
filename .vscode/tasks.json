@@ -7,6 +7,7 @@
             "command": "g++",
             "args": [
                 "-std=c++17",
+                "-g",
                 "-Ofast",
                 "-march=native",
                 "-pthread",

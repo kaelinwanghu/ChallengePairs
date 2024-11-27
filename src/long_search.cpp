@@ -90,7 +90,6 @@ namespace long_search
         visited[start_node] = true;
 
         std::pair<uint32_t, uint32_t> best_path = {0, 0};
-        uint32_t successor_id;
 
         // Actual BFS search
         while (!bfs_queue.empty())
@@ -110,11 +109,8 @@ namespace long_search
                 continue;
             }
 
-            // For each successor
-            const uint32_t* const end = successors.data() + successors.size();
-            for (const uint32_t* successor = successors.data(); successor != end; ++successor)
+            for (const uint32_t successor_id : successors)
             {
-                successor_id = *successor;
                 if (!visited[successor_id])
                 {
                     visited[successor_id] = true;
@@ -131,63 +127,120 @@ namespace long_search
         return best_path;
     }
     
-    std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> multithread_search(const Graph& graph, const std::vector<uint32_t>& start_nodes) noexcept
+    // Statistics gathering structure
+    struct ThreadStats
+    {
+        std::vector<double> search_times;  // Time for each individual search
+        double total_time{0.0};            // Total time spent searching
+        uint32_t searches_completed{0};    // Number of searches completed
+        uint32_t thread_id;
+        double completion_time{0.0};       // The time of last completion of the thread search
+        
+        // Reserve space for expected number of searches
+        explicit ThreadStats(uint32_t id, size_t expected_searches) : thread_id(id)
+        {
+            search_times.reserve(expected_searches);
+        }
+    };
+
+    std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> multithread_search(
+        const Graph& graph, const std::vector<uint32_t>& start_nodes) noexcept 
     {
         std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> results;
-
-        // Determine the number of threads to use
         const uint32_t num_threads = std::thread::hardware_concurrency();
         const size_t start_nodes_size = start_nodes.size();
-
-        // Atomic counter for dynamic scheduling
+        
         std::atomic<size_t> index_counter(0);
-
-        // Vector to hold threads
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
-
+        
+        // Create vectors for results and statistics
         std::vector<std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>> thread_results(num_threads);
+        std::vector<ThreadStats> thread_statistics;
+        thread_statistics.reserve(num_threads);
+        
+        // Initialize statistics for each thread
+        for (uint32_t i = 0; i < num_threads; ++i)
+        {
+            thread_statistics.emplace_back(i, start_nodes_size / num_threads);
+        }
+        
+        auto global_start = std::chrono::high_resolution_clock::now();
 
         auto thread_search = [&](const uint32_t thread_id)
         {
-            // Local results vector to to merge at the end
-            std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>& local_results = thread_results[thread_id];
-            local_results.reserve(start_nodes.size() / num_threads);
-
+            ThreadStats& stats = thread_statistics[thread_id];
+            auto& local_results = thread_results[thread_id];
+            local_results.reserve(start_nodes_size / num_threads);
             size_t i;
             while ((i = index_counter.fetch_add(1, std::memory_order_relaxed)) < start_nodes_size)
             {
                 const uint32_t start_node = start_nodes[i];
+                
+                // Time this individual search
+                auto search_start = std::chrono::high_resolution_clock::now();
                 const std::pair<uint32_t, uint32_t> result = bfs_search(graph, start_node);
+                auto search_end = std::chrono::high_resolution_clock::now();
+                
+                // Record statistics
+                double search_time = std::chrono::duration<double, std::milli>(search_end - search_start).count();
+                stats.search_times.push_back(search_time);
+                stats.total_time += search_time;
+                stats.searches_completed++;
+                stats.completion_time = std::chrono::duration<double, std::milli>(search_end - global_start).count();
                 local_results.emplace_back(start_node, result.first, result.second);
             }
         };
 
-        // Launch threads and then do a wait
+        // Launch threads
         for (uint32_t t = 0; t < num_threads; ++t)
         {
             threads.emplace_back(thread_search, t);
         }
+        
         for (std::thread& thread : threads)
         {
             thread.join();
         }
 
+        auto global_end = std::chrono::high_resolution_clock::now();
+        
         results.reserve(start_nodes_size);
-
-        // Move iterator to be extra efficient
-        for (const std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>& local_results : thread_results)
+        for (const auto& local_results : thread_results)
         {
             results.insert(results.end(), std::make_move_iterator(local_results.begin()), std::make_move_iterator(local_results.end()));
         }
-
-        // Sort the results in descending order based on path length
+        
+        // Sort results
         std::sort(results.begin(), results.end(),
             [](const auto& a, const auto& b)
             {
                 return std::get<2>(a) > std::get<2>(b);
             });
-
-        return results; 
+        
+        double total_execution_time = std::chrono::duration<double, std::milli>(global_end - global_start).count();
+        
+        std::cout << "\nThread Statistics:\n";
+        std::cout << "Total execution time: " << total_execution_time << "ms\n\n";
+        
+        for (const auto& stats : thread_statistics)
+        {
+            std::cout << "Thread " << stats.thread_id << ":\n";
+            std::cout << "    Searches completed: " << stats.searches_completed << "\n";
+            std::cout << "    Total search time: " << stats.total_time << "ms\n";
+            std::cout << "    Completion time: " << stats.completion_time << "ms\n";
+            
+            // Calculate statistics for this thread
+            if (!stats.search_times.empty())
+            {
+                double avg_time = stats.total_time / stats.searches_completed;
+                auto [min_it, max_it] = std::minmax_element(stats.search_times.begin(), stats.search_times.end());
+                std::cout << "    Average search time: " << avg_time << "ms\n";
+                std::cout << "    Min search time: " << *min_it << "ms\n";
+                std::cout << "    Max search time: " << *max_it << "ms\n";
+            }
+            std::cout << "\n";
+        }
+        return results;
     }
 }
